@@ -12,6 +12,8 @@ export default function PODetail({ params }: { params: { id: string } }) {
   const [err, setErr] = useState('');
   const [ok, setOk] = useState('');
 
+  const [busy, setBusy] = useState(false);
+
   useEffect(() => {
     setRcv({});
   }, [po?.status]);
@@ -19,12 +21,15 @@ export default function PODetail({ params }: { params: { id: string } }) {
   const act = async (path: string, body?: any, msg = 'Done') => {
     setErr('');
     setOk('');
+    setBusy(true);
     try {
       const r = await apiCall(`/api/purchase-orders/${params.id}/${path}`, 'POST', body);
       setOk(r.grn_number ? `GRN ${r.grn_number} posted — stock updated` : msg);
       reload();
     } catch (e: any) {
       setErr(e.message);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -48,15 +53,18 @@ export default function PODetail({ params }: { params: { id: string } }) {
           </button>
           {po.status === 'DRAFT' && isManagerOrAdmin && (
             <button
-              className="btn primary"
+              className={`btn primary ${busy ? 'loading' : ''}`}
+              disabled={busy}
               onClick={() => act('approve', undefined, 'PO approved')}
             >
-              Approve
+              {busy && <span className="btn-spinner" />}
+              {busy ? 'Approving…' : 'Approve'}
             </button>
           )}
           {['DRAFT', 'APPROVED'].includes(po.status) && isManagerOrAdmin && (
             <button
               className="btn danger"
+              disabled={busy}
               onClick={() => act('cancel', undefined, 'PO cancelled')}
             >
               Cancel

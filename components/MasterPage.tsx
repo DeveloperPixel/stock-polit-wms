@@ -10,6 +10,7 @@ export type Field = {
   type?: 'text' | 'number' | 'select' | 'checkbox' | 'textarea' | 'password' | 'email';
   options?: { value: string | number; label: string }[];
   required?: boolean;
+  canAutoGenerate?: boolean;
 };
 
 export type Column = {
@@ -39,13 +40,40 @@ export default function MasterPage({
   const { data, error, reload } = useData<any[]>(`${endpoint}${q ? `?q=${encodeURIComponent(q)}` : ''}`);
   const [editing, setEditing] = useState<Record<string, any> | null>(null);
   const [formErr, setFormErr] = useState('');
+  const [saving, setSaving] = useState(false);
   const { success, error: toastErr } = useToast();
 
   const singular = title.replace(/s$/, '');
 
+  // Helper to generate SKU in standard format: [PREFIX]-[NAME_CLEANED]-[RANDOM_INT]
+  function generateSKU() {
+    if (!editing) return;
+    const catField = fields.find(f => f.name === 'category_id');
+    const selectedCatId = editing.category_id;
+    let prefix = 'PRD';
+
+    if (catField && catField.options && selectedCatId) {
+      const match = catField.options.find(o => String(o.value) === String(selectedCatId));
+      if (match && match.label) {
+        prefix = match.label.substring(0, 3).toUpperCase();
+      }
+    }
+
+    const namePart = (editing.name || '')
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, '')
+      .substring(0, 5);
+
+    const randomNum = Math.floor(100 + Math.random() * 900); // 3 digits
+    const sku = namePart ? `${prefix}-${namePart}-${randomNum}` : `${prefix}-${randomNum}`;
+    setEditing({ ...editing, sku });
+  }
+
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setFormErr('');
+    setSaving(true);
     const body: Record<string, any> = {};
     for (const f of fields) {
       const v = editing![f.name];
@@ -65,6 +93,8 @@ export default function MasterPage({
     } catch (err: any) {
       setFormErr(err.message);
       toastErr(err.message);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -93,7 +123,11 @@ export default function MasterPage({
         {data && data.length === 0 ? (
           <EmptyState
             title={`No ${title.toLowerCase()} found`}
-            description={q ? `No ${title.toLowerCase()} matching "${q}". Try clearing the search filter.` : `You haven't added any ${title.toLowerCase()} yet.`}
+            description={
+              q
+                ? `No ${title.toLowerCase()} matching "${q}". Try clearing the search filter.`
+                : `You haven't added any ${title.toLowerCase()} yet.`
+            }
             actionText={canEdit ? `+ Create First ${singular}` : undefined}
             onAction={canEdit ? () => setEditing({ ...defaults }) : undefined}
             icon={title === 'Warehouses' ? '🏢' : title === 'Vendors' ? '🤝' : title === 'Products' ? '📦' : '📋'}
@@ -142,10 +176,23 @@ export default function MasterPage({
             <div className="form">
               {fields.map(f => (
                 <div key={f.name} style={f.type === 'textarea' ? { gridColumn: '1/-1' } : undefined}>
-                  <label>
-                    {f.label}
-                    {f.required && ' *'}
-                  </label>
+                  <div className="row" style={{ justifyContent: 'space-between', marginBottom: 4 }}>
+                    <label style={{ margin: 0 }}>
+                      {f.label}
+                      {f.required && ' *'}
+                    </label>
+                    {f.canAutoGenerate && (
+                      <button
+                        type="button"
+                        className="btn sm"
+                        style={{ padding: '2px 7px', fontSize: 11 }}
+                        onClick={generateSKU}
+                      >
+                        ⚡ Auto-generate
+                      </button>
+                    )}
+                  </div>
+
                   {f.type === 'select' ? (
                     <select
                       value={editing[f.name] ?? ''}
@@ -185,10 +232,13 @@ export default function MasterPage({
               ))}
             </div>
             <div className="row" style={{ marginTop: 16, justifyContent: 'flex-end' }}>
-              <button type="button" className="btn" onClick={() => setEditing(null)}>
+              <button type="button" className="btn" disabled={saving} onClick={() => setEditing(null)}>
                 Cancel
               </button>
-              <button className="btn primary">Save</button>
+              <button className={`btn primary ${saving ? 'loading' : ''}`} disabled={saving}>
+                {saving && <span className="btn-spinner" />}
+                {saving ? 'Saving…' : 'Save'}
+              </button>
             </div>
           </form>
         </div>
