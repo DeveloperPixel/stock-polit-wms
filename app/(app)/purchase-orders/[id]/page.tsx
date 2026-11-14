@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import Status from '@/components/Status';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import GRNPrintModal from '@/components/GRNPrintModal';
 import { apiCall, date, money, qty, useData } from '@/lib/client';
 
 export default function PODetail({ params }: { params: { id: string } }) {
@@ -14,6 +15,7 @@ export default function PODetail({ params }: { params: { id: string } }) {
   const [err, setErr] = useState('');
   const [ok, setOk] = useState('');
 
+  const [selectedGrnForPrint, setSelectedGrnForPrint] = useState<any | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -307,29 +309,60 @@ export default function PODetail({ params }: { params: { id: string } }) {
         </div>
       )}
       {po.grns.length > 0 && (
-        <div className="card">
-          <h3 style={{ marginTop: 0 }}>Goods receipts</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>GRN #</th>
-                <th>Date</th>
-                <th>Invoice</th>
-                <th className="num">Value</th>
-              </tr>
-            </thead>
-            <tbody>
-              {po.grns.map((g: any) => (
-                <tr key={g.id}>
-                  <td>{g.grn_number}</td>
-                  <td>{date(g.received_date)}</td>
-                  <td>{g.invoice_no ?? '—'}</td>
-                  <td className="num">{money(g.total_value)}</td>
+        <div className="card" style={{ padding: 0 }}>
+          <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 style={{ margin: 0, fontSize: 16 }}>Goods Receipts (GRNs)</h3>
+            <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>
+              {po.grns.length} receipt voucher{po.grns.length === 1 ? '' : 's'} on record
+            </span>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>GRN #</th>
+                  <th>Received Date</th>
+                  <th>Vendor Invoice</th>
+                  <th>Received By</th>
+                  <th>Items Count</th>
+                  <th className="num">GRN Value</th>
+                  <th style={{ width: 140, textAlign: 'right' }}>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {po.grns.map((g: any) => (
+                  <tr key={g.id}>
+                    <td><b>{g.grn_number}</b></td>
+                    <td>{date(g.received_date || g.created_at)}</td>
+                    <td>{g.invoice_no ? <span className="badge">{g.invoice_no}</span> : '—'}</td>
+                    <td>{g.received_by_name || 'Store Keeper'}</td>
+                    <td>{g.items?.length || 0} line{g.items?.length === 1 ? '' : 's'}</td>
+                    <td className="num"><b>{money(g.total_value)}</b></td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button
+                        type="button"
+                        className="btn sm"
+                        style={{ padding: '3px 9px', fontSize: 12, fontWeight: 600 }}
+                        onClick={() => setSelectedGrnForPrint(g)}
+                      >
+                        View & Print Receipt
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
+      )}
+
+      {/* Printable Receipt Voucher Modal */}
+      {selectedGrnForPrint && (
+        <GRNPrintModal
+          po={po}
+          grn={selectedGrnForPrint}
+          onClose={() => setSelectedGrnForPrint(null)}
+        />
       )}
     </>
   );

@@ -48,9 +48,9 @@ export default function Products() {
 
     const filtered = catFilter
       ? products.filter(p => {
-          const cat = categories.find((c: any) => c.id === p.category_id);
-          return (cat ? cat.name : 'Uncategorized') === catFilter;
-        })
+        const cat = categories.find((c: any) => c.id === p.category_id);
+        return (cat ? cat.name : 'Uncategorized') === catFilter;
+      })
       : products;
 
     for (const p of filtered) {

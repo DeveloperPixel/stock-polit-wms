@@ -73,9 +73,9 @@ export async function receivePO(id: number, d: { invoice_no: string | null; note
       if (i.qty_received > pending) throw new HttpError(422, `Receiving ${i.qty_received} exceeds pending ${pending}`);
 
       await c.query(
-        `INSERT INTO goods_receipt_items(grn_id,po_item_id,product_id,qty_received,qty_rejected,unit_cost,batch_no,expiry_date)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-        [grn.id, line.id, line.product_id, i.qty_received, i.qty_rejected, line.unit_price, i.batch_no || null, i.expiry_date || null]);
+        `INSERT INTO goods_receipt_items(grn_id,po_item_id,product_id,qty_received,qty_rejected,unit_cost,batch_no,expiry_date,bin_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        [grn.id, line.id, line.product_id, i.qty_received, i.qty_rejected, line.unit_price, i.batch_no || null, i.expiry_date || null, i.bin_id || null]);
       if (i.qty_received > 0) {
         await c.query(`UPDATE purchase_order_items SET qty_received = qty_received + $1 WHERE id=$2`, [i.qty_received, line.id]);
         await c.query(
@@ -110,8 +110,23 @@ export async function getPO(id: number) {
   const items = await query(
     `SELECT i.*, p.sku, p.name, p.uom FROM purchase_order_items i JOIN products p ON p.id=i.product_id
       WHERE i.po_id=$1 ORDER BY i.id`, [id]);
-  const grns = await query(`SELECT * FROM goods_receipts WHERE po_id=$1 ORDER BY id`, [id]);
-  return { ...po, items, grns };
+  const grns = await query(
+    `SELECT g.*, u.name AS received_by_name
+       FROM goods_receipts g
+       LEFT JOIN users u ON u.id = g.created_by
+      WHERE g.po_id=$1 ORDER BY g.id DESC`, [id]);
+  const grnItems = await query(
+    `SELECT gi.*, p.sku, p.name, p.uom, b.code AS bin_code
+       FROM goods_receipt_items gi
+       JOIN goods_receipts g ON g.id = gi.grn_id
+       JOIN products p ON p.id = gi.product_id
+       LEFT JOIN bin_locations b ON b.id = gi.bin_id
+      WHERE g.po_id=$1 ORDER BY gi.id`, [id]);
+  const grnsWithItems = grns.map(g => ({
+    ...g,
+    items: grnItems.filter(item => item.grn_id === g.id)
+  }));
+  return { ...po, items, grns: grnsWithItems };
 }
 
 export async function recordPayment(d: { vendor_id: number; po_id?: number | null; amount: number; paid_on: string | null; mode: string; reference: string | null }, userId: number) {
