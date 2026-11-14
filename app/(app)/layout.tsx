@@ -8,7 +8,8 @@ const nav: NavGroup[] = [
   {
     title: 'Overview',
     links: [
-      { href: '/', label: 'Dashboard', icon: 'dashboard' }
+      { href: '/', label: 'Dashboard', icon: 'dashboard' },
+      { href: '/reports', label: 'Reports & Analytics', icon: 'bar-chart' }
     ]
   },
   {
