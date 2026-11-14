@@ -81,21 +81,23 @@ export default function Products() {
     return `${base12}${checkDigit}`;
   }
 
-  // Generate SKU & Barcode, and check for existing SKU collisions
-  function generateSKU() {
-    if (!editing) return;
-    setDuplicateProduct(null);
+  // Generate SKU & Barcode only when both Product Name and Category are provided
+  function computeSkuAndBarcode(currentEditing: Record<string, any>) {
+    const name = (currentEditing.name || '').trim();
+    const catId = currentEditing.category_id;
 
-    let prefix = 'PRD';
-    if (editing.category_id) {
-      const match = categories.find((c: any) => String(c.id) === String(editing.category_id));
-      if (match && match.name) {
-        prefix = match.name.substring(0, 3).toUpperCase();
-      }
+    // Only generate if both Category and Product Name are present
+    if (!name || !catId) {
+      return { sku: currentEditing.sku || '', barcode: currentEditing.barcode || '' };
     }
 
-    const namePart = (editing.name || '')
-      .trim()
+    let prefix = 'PRD';
+    const match = categories.find((c: any) => String(c.id) === String(catId));
+    if (match && match.name) {
+      prefix = match.name.substring(0, 3).toUpperCase();
+    }
+
+    const namePart = name
       .toUpperCase()
       .replace(/[^A-Z0-9]/g, '')
       .substring(0, 5);
@@ -104,6 +106,22 @@ export default function Products() {
     const sku = namePart ? `${prefix}-${namePart}-${randomNum}` : `${prefix}-${randomNum}`;
     const barcode = generateBarcode(sku);
 
+    return { sku, barcode };
+  }
+
+  // User manually triggers regeneration
+  function generateSKU() {
+    if (!editing) return;
+    setDuplicateProduct(null);
+
+    const name = (editing.name || '').trim();
+    if (!name || !editing.category_id) {
+      toastErr('Please select a Category and enter a Product Name first');
+      return;
+    }
+
+    const { sku, barcode } = computeSkuAndBarcode(editing);
+
     // Check if generated SKU already exists
     const existing = products?.find(p => p.sku === sku && p.id !== editing.id);
     if (existing) {
@@ -111,6 +129,39 @@ export default function Products() {
     }
 
     setEditing({ ...editing, sku, barcode });
+  }
+
+  // Handle Name or Category changes to auto-derive SKU & Barcode when both are present
+  function handleNameOrCategoryChange(patch: Partial<Record<string, any>>) {
+    if (!editing) return;
+    const next = { ...editing, ...patch };
+
+    // For existing product being edited, preserve original SKU/barcode unless empty
+    if (editing.id && editing.sku && editing.barcode) {
+      setEditing(next);
+      return;
+    }
+
+    const name = (next.name || '').trim();
+    const catId = next.category_id;
+
+    if (name && catId) {
+      // Both are present: generate barcode and sku
+      if (!next.sku || !next.barcode || patch.category_id !== undefined) {
+        const { sku, barcode } = computeSkuAndBarcode(next);
+        setEditing({ ...next, sku, barcode });
+        return;
+      }
+    } else {
+      // Clear auto-generated barcode and SKU if one of them is missing (for new products)
+      if (!editing.id) {
+        setEditing({ ...next, sku: '', barcode: '' });
+        setDuplicateProduct(null);
+        return;
+      }
+    }
+
+    setEditing(next);
   }
 
   async function save(e: React.FormEvent) {
@@ -184,10 +235,13 @@ export default function Products() {
             onClick={() => {
               setDuplicateProduct(null);
               setEditing({
+                name: '',
+                category_id: '',
+                sku: '',
+                barcode: '',
                 uom: 'PCS',
                 tax_rate: 18,
-                active: true,
-                category_id: categories[0]?.id || ''
+                active: true
               });
             }}
           >
@@ -370,6 +424,33 @@ export default function Products() {
               </div>
               <div className="prod-grid-2">
                 <div>
+                  <label style={{ fontWeight: 600 }}>Product Name *</label>
+                  <input
+                    required
+                    value={editing.name ?? ''}
+                    onChange={e => handleNameOrCategoryChange({ name: e.target.value })}
+                    placeholder="e.g. ESP32 Dev Board"
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontWeight: 600 }}>Category *</label>
+                  <select
+                    value={editing.category_id ?? ''}
+                    onChange={e => handleNameOrCategoryChange({ category_id: e.target.value })}
+                  >
+                    <option value="">— select category —</option>
+                    {categories.map((c: any) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="prod-grid-2" style={{ marginTop: 12 }}>
+                <div>
                   <label style={{ marginBottom: 6, fontWeight: 600 }}>SKU (Auto-Generated) *</label>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
                     <input
@@ -377,7 +458,7 @@ export default function Products() {
                       readOnly
                       tabIndex={-1}
                       value={editing.sku ?? ''}
-                      placeholder="Auto-generated from Name & Category"
+                      placeholder={editing.name && editing.category_id ? 'Auto-generated' : 'Enter Name & Category to generate'}
                       style={{
                         background: '#f1f5f9',
                         color: '#475569',
@@ -406,6 +487,8 @@ export default function Products() {
                           justifyContent: 'center'
                         }}
                         onClick={generateSKU}
+                        disabled={!editing.name?.trim() || !editing.category_id}
+                        title={!editing.name?.trim() || !editing.category_id ? 'Enter Name and Category first' : undefined}
                       >
                         Regenerate
                       </button>
@@ -419,7 +502,7 @@ export default function Products() {
                     readOnly
                     tabIndex={-1}
                     value={editing.barcode ?? ''}
-                    placeholder="Generated with SKU"
+                    placeholder={editing.name && editing.category_id ? 'Generated with SKU' : 'Awaiting Name & Category'}
                     style={{
                       background: '#f1f5f9',
                       color: '#475569',
@@ -433,8 +516,8 @@ export default function Products() {
                 </div>
               </div>
 
-              {/* Barcode Visual Preview only (no download button in form) */}
-              {editing.barcode && (
+              {/* Barcode Visual Preview only when both Name and Category are provided */}
+              {editing.barcode && editing.name?.trim() && editing.category_id && (
                 <div style={{ marginTop: 12 }}>
                   <BarcodePreview
                     value={editing.barcode}
@@ -444,33 +527,6 @@ export default function Products() {
                   />
                 </div>
               )}
-
-              <div className="prod-grid-2" style={{ marginTop: 12 }}>
-                <div>
-                  <label style={{ fontWeight: 600 }}>Product Name *</label>
-                  <input
-                    required
-                    value={editing.name ?? ''}
-                    onChange={e => setEditing({ ...editing, name: e.target.value })}
-                    placeholder="e.g. ESP32 Dev Board"
-                  />
-                </div>
-
-                <div>
-                  <label style={{ fontWeight: 600 }}>Category *</label>
-                  <select
-                    value={editing.category_id ?? ''}
-                    onChange={e => setEditing({ ...editing, category_id: e.target.value })}
-                  >
-                    <option value="">— select category —</option>
-                    {categories.map((c: any) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
 
               <div className="prod-grid-2" style={{ marginTop: 12 }}>
                 <div>
