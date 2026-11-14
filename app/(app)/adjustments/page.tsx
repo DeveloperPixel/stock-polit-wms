@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import LineItems, { Line } from '@/components/LineItems';
 import EmptyState from '@/components/EmptyState';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { useToast } from '@/components/Toast';
 import { apiCall, date, useData } from '@/lib/client';
 
@@ -88,7 +89,9 @@ export default function Adjustments() {
       </div>
 
       <div className="card" style={{ padding: 0, overflow: 'auto' }}>
-        {data && data.length === 0 ? (
+        {!data ? (
+          <LoadingSpinner message="Loading stock adjustments…" minHeight={220} />
+        ) : data.length === 0 ? (
           <EmptyState
             title="No adjustments on file"
             description="Use the form above to record shrinkage, cycle count corrections, or damages."

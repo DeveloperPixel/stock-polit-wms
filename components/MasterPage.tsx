@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { apiCall, useData } from '@/lib/client';
 import EmptyState from '@/components/EmptyState';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { useToast } from '@/components/Toast';
 
 export type Field = {
@@ -120,7 +121,9 @@ export default function MasterPage({
       {error && <div className="err">{error}</div>}
 
       <div className="card" style={{ padding: 0, overflow: 'auto' }}>
-        {data && data.length === 0 ? (
+        {!data ? (
+          <LoadingSpinner message={`Loading ${title.toLowerCase()}…`} minHeight={260} />
+        ) : data.length === 0 ? (
           <EmptyState
             title={`No ${title.toLowerCase()} found`}
             description={

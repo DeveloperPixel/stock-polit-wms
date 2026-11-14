@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import Status from '@/components/Status';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { useToast } from '@/components/Toast';
 import { apiCall, date, money, qty, useData } from '@/lib/client';
 
@@ -29,7 +30,13 @@ export default function SODetail({ params }: { params: { id: string } }) {
     }
   };
 
-  if (!so) return <p>Loading…</p>;
+  if (!so) {
+    return (
+      <div className="card" style={{ padding: 0 }}>
+        <LoadingSpinner message="Loading sales order details…" minHeight={320} />
+      </div>
+    );
+  }
 
   return (
     <>

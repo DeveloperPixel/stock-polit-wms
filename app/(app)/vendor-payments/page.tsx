@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import EmptyState from '@/components/EmptyState';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { date, money, useData } from '@/lib/client';
 
 export default function Payments() {
@@ -13,7 +14,9 @@ export default function Payments() {
         <span className="muted">Record payments from a vendor’s profile</span>
       </div>
       <div className="card" style={{ padding: 0, overflow: 'auto' }}>
-        {data && data.length === 0 ? (
+        {!data ? (
+          <LoadingSpinner message="Loading payments ledger…" minHeight={240} />
+        ) : data.length === 0 ? (
           <EmptyState
             title="No payments recorded"
             description="Payments are recorded directly from individual vendor profile pages."

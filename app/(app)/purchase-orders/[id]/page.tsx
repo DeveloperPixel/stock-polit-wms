@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import Status from '@/components/Status';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { apiCall, date, money, qty, useData } from '@/lib/client';
 
 export default function PODetail({ params }: { params: { id: string } }) {
@@ -34,7 +35,13 @@ export default function PODetail({ params }: { params: { id: string } }) {
     }
   };
 
-  if (!po) return <p>Loading…</p>;
+  if (!po) {
+    return (
+      <div className="card" style={{ padding: 0 }}>
+        <LoadingSpinner message="Loading purchase order details…" minHeight={320} />
+      </div>
+    );
+  }
 
   const isManagerOrAdmin = user?.role === 'ADMIN' || user?.role === 'MANAGER';
   const canReceive = ['APPROVED', 'PARTIAL'].includes(po.status);

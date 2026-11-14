@@ -1,6 +1,7 @@
 'use client';
 import { useMemo, useState } from 'react';
 import EmptyState from '@/components/EmptyState';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { money, qty, useData } from '@/lib/client';
 
 export default function Stock() {
@@ -83,7 +84,11 @@ export default function Stock() {
         </div>
       </div>
 
-      {filteredData.length === 0 ? (
+      {!data ? (
+        <div className="card" style={{ padding: 0 }}>
+          <LoadingSpinner message="Loading warehouse stock levels…" minHeight={300} />
+        </div>
+      ) : filteredData.length === 0 ? (
         <div className="card" style={{ padding: 0 }}>
           <EmptyState
             title="No inventory records found"

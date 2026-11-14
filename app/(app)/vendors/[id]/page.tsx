@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import Status from '@/components/Status';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { apiCall, date, money, useData } from '@/lib/client';
 import { useToast } from '@/components/Toast';
 
@@ -48,7 +49,13 @@ export default function VendorDetail({ params }: { params: { id: string } }) {
     }
   }
 
-  if (!v) return <div style={{ padding: 30 }}>Loading vendor details…</div>;
+  if (!v) {
+    return (
+      <div className="card" style={{ padding: 0 }}>
+        <LoadingSpinner message="Loading vendor details…" minHeight={320} />
+      </div>
+    );
+  }
 
   return (
     <>

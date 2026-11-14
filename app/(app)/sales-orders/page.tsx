@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import Status from '@/components/Status';
 import EmptyState from '@/components/EmptyState';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { date, money, useData } from '@/lib/client';
 
 export default function SOList() {
@@ -16,7 +17,9 @@ export default function SOList() {
         </Link>
       </div>
       <div className="card" style={{ padding: 0, overflow: 'auto' }}>
-        {data && data.length === 0 ? (
+        {!data ? (
+          <LoadingSpinner message="Loading sales orders…" minHeight={260} />
+        ) : data.length === 0 ? (
           <EmptyState
             title="No sales orders found"
             description="You haven't created any sales orders for fulfillment yet."

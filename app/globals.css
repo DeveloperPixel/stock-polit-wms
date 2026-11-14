@@ -436,6 +436,17 @@ td.num, th.num {
   animation: spin 0.6s linear infinite;
 }
 
+/* Global Page & Card Loading Spinner */
+.page-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(11, 31, 75, 0.12);
+  border-top-color: var(--indigo);
+  border-radius: 50%;
+  display: inline-block;
+  animation: spin 0.7s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }

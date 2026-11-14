@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import Status from '@/components/Status';
 import EmptyState from '@/components/EmptyState';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { date, money, useData } from '@/lib/client';
 
 export default function POList() {
@@ -26,7 +27,9 @@ export default function POList() {
         </div>
       </div>
       <div className="card" style={{ padding: 0, overflow: 'auto' }}>
-        {data && data.length === 0 ? (
+        {!data ? (
+          <LoadingSpinner message="Loading purchase orders…" minHeight={260} />
+        ) : data.length === 0 ? (
           <EmptyState
             title="No purchase orders found"
             description={st ? `No purchase orders found with status "${st}".` : "You haven't created any purchase orders yet."}

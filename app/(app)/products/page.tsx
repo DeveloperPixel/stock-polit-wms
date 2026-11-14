@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import BarcodePreview from '@/components/BarcodePreview';
 import BarcodeScannerModal from '@/components/BarcodeScannerModal';
 import EmptyState from '@/components/EmptyState';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { useToast } from '@/components/Toast';
 import { apiCall, money, qty, useData } from '@/lib/client';
 
@@ -195,7 +196,11 @@ export default function Products() {
         </div>
       </div>
 
-      {grouped.size === 0 ? (
+      {!products ? (
+        <div className="card" style={{ padding: 0 }}>
+          <LoadingSpinner message="Loading products catalog…" minHeight={300} />
+        </div>
+      ) : grouped.size === 0 ? (
         <div className="card" style={{ padding: 0 }}>
           <EmptyState
             title="No products found"
