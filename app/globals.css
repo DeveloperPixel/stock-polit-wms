@@ -217,14 +217,14 @@ a {
   min-width: 960px;
 }
 .table-products .col-sku { width: 14%; }
-.table-products .col-name { width: 24%; }
+.table-products .col-name { width: 23%; }
 .table-products .col-uom { width: 8%; }
-.table-products .col-barcode { width: 15%; }
+.table-products .col-barcode { width: 16%; }
 .table-products .col-cost { width: 10%; }
 .table-products .col-price { width: 10%; }
 .table-products .col-reorder { width: 9%; }
 .table-products .col-status { width: 8%; }
-.table-products .col-actions { width: 60px; }
+.table-products .col-actions { width: 68px; }
 
 /* Stock levels column widths */
 .table-stock {

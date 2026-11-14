@@ -202,3 +202,4 @@ export default function BarcodePreview({ value, sku, productName, className }: B
     </div>
   );
 }
+

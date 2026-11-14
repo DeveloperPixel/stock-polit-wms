@@ -17,6 +17,7 @@ export default function Products() {
   const [formErr, setFormErr] = useState('');
   const [saving, setSaving] = useState(false);
   const [duplicateProduct, setDuplicateProduct] = useState<any | null>(null);
+  const [viewBarcodeProduct, setViewBarcodeProduct] = useState<any | null>(null);
   const { success, error: toastErr } = useToast();
 
   const categories = lk?.categories ?? [];
@@ -254,8 +255,28 @@ export default function Products() {
                       <td title={r.name}>{r.name}</td>
                       <td>{r.uom}</td>
                       <td>
-                        <span className="badge" style={{ fontFamily: 'monospace', letterSpacing: '0.05em' }}>
+                        <span
+                          className="badge"
+                          style={{
+                            fontFamily: 'monospace',
+                            letterSpacing: '0.05em',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            cursor: r.barcode ? 'pointer' : 'default',
+                            padding: '3px 8px'
+                          }}
+                          onClick={() => {
+                            if (r.barcode) setViewBarcodeProduct(r);
+                          }}
+                          title={r.barcode ? 'Click to view & download barcode' : undefined}
+                        >
                           {r.barcode || '—'}
+                          {r.barcode && (
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.75 }}>
+                              <path d="M3 5v14M8 5v14M12 5v14M17 5v14M21 5v14" />
+                            </svg>
+                          )}
                         </span>
                       </td>
                       <td className="num">{money(r.cost_price)}</td>
@@ -322,10 +343,10 @@ export default function Products() {
 
             {formErr && <div className="err">{formErr}</div>}
 
-            {/* Section 1: Identification & Basic Info */}
+            {/* Section 1: Basic Identification */}
             <div className="prod-form-section">
               <div className="prod-form-section-title">
-                <span>🏷️</span> Basic Identification
+                Basic Identification
               </div>
               <div className="prod-grid-2">
                 <div>
@@ -448,7 +469,7 @@ export default function Products() {
             {/* Section 2: Pricing & Taxation */}
             <div className="prod-form-section">
               <div className="prod-form-section-title">
-                <span>💰</span> Pricing & Taxation
+                Pricing & Taxation
               </div>
               <div className="prod-grid-3">
                 <div>
@@ -491,7 +512,7 @@ export default function Products() {
             {/* Section 3: Inventory Reorder & Status */}
             <div className="prod-form-section" style={{ marginBottom: 8 }}>
               <div className="prod-form-section-title">
-                <span>📦</span> Inventory Planning & Status
+                Inventory Planning & Status
               </div>
               <div className="prod-grid-3">
                 <div>
@@ -593,6 +614,53 @@ export default function Products() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Barcode View & Download Modal */}
+      {viewBarcodeProduct && (
+        <div
+          className="modal-bg"
+          onClick={() => setViewBarcodeProduct(null)}
+        >
+          <div
+            className="modal"
+            style={{ maxWidth: 440, padding: 24 }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, borderBottom: '1px solid var(--line)', paddingBottom: 10 }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 17 }}>Barcode</h3>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                  {viewBarcodeProduct.sku} — {viewBarcodeProduct.name}
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn sm"
+                style={{ padding: '4px 8px', fontSize: 16, border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--muted)' }}
+                onClick={() => setViewBarcodeProduct(null)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <BarcodePreview
+              value={viewBarcodeProduct.barcode}
+              sku={viewBarcodeProduct.sku}
+              productName={viewBarcodeProduct.name}
+            />
+
+            <div className="row" style={{ marginTop: 18, justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setViewBarcodeProduct(null)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </>
