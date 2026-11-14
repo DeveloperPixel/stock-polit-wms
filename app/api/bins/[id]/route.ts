@@ -18,3 +18,4 @@ export const PUT = api(async (req, { params }) => {
     [body.code.toUpperCase(), body.description || null, params.id]
   );
 });
+

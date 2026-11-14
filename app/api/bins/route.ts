@@ -38,3 +38,4 @@ export const POST = api(async req => {
     [d.warehouse_id, d.code.toUpperCase(), d.description || null]
   );
 });
+
