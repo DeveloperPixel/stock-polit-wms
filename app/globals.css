@@ -529,7 +529,7 @@ td.num, th.num {
   padding: 18px 24px;
 }
 
-/* ---------------- Form Elements ---------------- */
+/* ---------------- Form Elements & Modal Layout ---------------- */
 input, select, textarea {
   width: 100%;
   padding: 8px 10px;
@@ -547,6 +547,11 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 0 0 3px rgba(59, 79, 224, 0.1);
 }
 
+input[readonly], input:disabled, select:disabled {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 label {
   display: block;
   font-size: 12px;
@@ -559,6 +564,51 @@ label {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 12px;
+}
+
+/* Structured product form section cards */
+.prod-form-section {
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+
+.prod-form-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.prod-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.prod-grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+
+.prod-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 680px) {
+  .prod-grid-2, .prod-grid-3, .prod-grid-4 {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ---------------- Badges ---------------- */

@@ -296,166 +296,227 @@ export default function Products() {
             setDuplicateProduct(null);
           }}
         >
-          <form className="modal" onClick={e => e.stopPropagation()} onSubmit={save}>
-            <h3 style={{ marginTop: 0 }}>
-              {editing.id ? 'Edit Product' : 'New Product'}
-            </h3>
-            {formErr && <div className="err">{formErr}</div>}
-            <div className="form">
+          <form className="modal" style={{ maxWidth: 720 }} onClick={e => e.stopPropagation()} onSubmit={save}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid var(--line)', paddingBottom: 12 }}>
               <div>
-                <div className="row" style={{ justifyContent: 'space-between', marginBottom: 4 }}>
-                  <label style={{ margin: 0 }}>SKU (Auto-Generated) *</label>
-                  {!editing.id && (
-                    <button
-                      type="button"
-                      className="btn sm"
-                      style={{ padding: '2px 7px', fontSize: 11 }}
-                      onClick={generateSKU}
-                    >
-                      ⚡ Generate SKU &amp; Barcode
-                    </button>
-                  )}
+                <h3 style={{ margin: 0, fontSize: 18 }}>
+                  {editing.id ? 'Edit Product' : 'New Product'}
+                </h3>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                  {editing.id ? `Update product details for ${editing.sku}` : 'Fill in the details below to add a new item to your catalog'}
                 </div>
-                {/* Non-inputable read-only SKU field */}
-                <input
-                  required
-                  readOnly
-                  tabIndex={-1}
-                  value={editing.sku ?? ''}
-                  placeholder="Click 'Generate' or enter Name"
-                  style={{
-                    background: '#f1f5f9',
-                    color: '#334155',
-                    cursor: 'not-allowed',
-                    fontWeight: 600
-                  }}
-                />
               </div>
+              <button
+                type="button"
+                className="btn sm"
+                style={{ padding: '4px 8px', fontSize: 16, lineHeight: 1, border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--muted)' }}
+                onClick={() => {
+                  setEditing(null);
+                  setDuplicateProduct(null);
+                }}
+              >
+                ✕
+              </button>
+            </div>
 
-              <div>
-                <label>Name *</label>
-                <input
-                  required
-                  value={editing.name ?? ''}
-                  onChange={e => setEditing({ ...editing, name: e.target.value })}
-                  placeholder="e.g. ESP32 Dev Board"
-                />
+            {formErr && <div className="err">{formErr}</div>}
+
+            {/* Section 1: Identification & Basic Info */}
+            <div className="prod-form-section">
+              <div className="prod-form-section-title">
+                <span>🏷️</span> Basic Identification
               </div>
-
-              <div>
-                <label>Category</label>
-                <select
-                  value={editing.category_id ?? ''}
-                  onChange={e => setEditing({ ...editing, category_id: e.target.value })}
-                >
-                  <option value="">— select category —</option>
-                  {categories.map((c: any) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label>Unit of measure (UOM) *</label>
-                <select
-                  required
-                  value={editing.uom ?? 'PCS'}
-                  onChange={e => setEditing({ ...editing, uom: e.target.value })}
-                >
-                  {UOM_OPTIONS.map(u => (
-                    <option key={u.value} value={u.value}>
-                      {u.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label>Barcode (Auto-Generated)</label>
-                <input
-                  readOnly
-                  tabIndex={-1}
-                  value={editing.barcode ?? ''}
-                  placeholder="Generated with SKU"
-                  style={{
-                    background: '#f1f5f9',
-                    color: '#334155',
-                    cursor: 'not-allowed',
-                    fontFamily: 'monospace'
-                  }}
-                />
-              </div>
-
-              <div>
-                <label>HSN code</label>
-                <input
-                  value={editing.hsn_code ?? ''}
-                  onChange={e => setEditing({ ...editing, hsn_code: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <label>Cost price</label>
-                <input
-                  type="number"
-                  step="any"
-                  value={editing.cost_price ?? 0}
-                  onChange={e => setEditing({ ...editing, cost_price: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <label>Sale price</label>
-                <input
-                  type="number"
-                  step="any"
-                  value={editing.sale_price ?? 0}
-                  onChange={e => setEditing({ ...editing, sale_price: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <label>GST %</label>
-                <input
-                  type="number"
-                  step="any"
-                  value={editing.tax_rate ?? 18}
-                  onChange={e => setEditing({ ...editing, tax_rate: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <label>Reorder level</label>
-                <input
-                  type="number"
-                  step="any"
-                  value={editing.reorder_level ?? 0}
-                  onChange={e => setEditing({ ...editing, reorder_level: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <label>Reorder qty</label>
-                <input
-                  type="number"
-                  step="any"
-                  value={editing.reorder_qty ?? 0}
-                  onChange={e => setEditing({ ...editing, reorder_qty: e.target.value })}
-                />
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', paddingTop: 20 }}>
-                <label className="row" style={{ cursor: 'pointer', margin: 0 }}>
+              <div className="prod-grid-2">
+                <div>
+                  <div className="row" style={{ justifyContent: 'space-between', marginBottom: 4 }}>
+                    <label style={{ margin: 0, fontWeight: 600 }}>SKU (Auto-Generated) *</label>
+                    {!editing.id && (
+                      <button
+                        type="button"
+                        className="btn sm"
+                        style={{ padding: '2px 7px', fontSize: 11 }}
+                        onClick={generateSKU}
+                      >
+                        ⚡ Re-generate
+                      </button>
+                    )}
+                  </div>
                   <input
-                    type="checkbox"
-                    style={{ width: 'auto' }}
-                    checked={editing.active !== false}
-                    onChange={e => setEditing({ ...editing, active: e.target.checked })}
+                    required
+                    readOnly
+                    tabIndex={-1}
+                    value={editing.sku ?? ''}
+                    placeholder="Auto-generated from Name & Category"
+                    style={{
+                      background: '#f1f5f9',
+                      color: '#475569',
+                      cursor: 'default',
+                      fontWeight: 700,
+                      pointerEvents: 'none',
+                      userSelect: 'none',
+                      fontFamily: 'monospace'
+                    }}
                   />
-                  <span>Active</span>
-                </label>
+                </div>
+
+                <div>
+                  <label style={{ fontWeight: 600 }}>Barcode (Auto-Generated)</label>
+                  <input
+                    readOnly
+                    tabIndex={-1}
+                    value={editing.barcode ?? ''}
+                    placeholder="Generated with SKU"
+                    style={{
+                      background: '#f1f5f9',
+                      color: '#475569',
+                      cursor: 'default',
+                      pointerEvents: 'none',
+                      userSelect: 'none',
+                      fontFamily: 'monospace',
+                      letterSpacing: '0.04em'
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="prod-grid-2" style={{ marginTop: 12 }}>
+                <div>
+                  <label style={{ fontWeight: 600 }}>Product Name *</label>
+                  <input
+                    required
+                    value={editing.name ?? ''}
+                    onChange={e => setEditing({ ...editing, name: e.target.value })}
+                    placeholder="e.g. ESP32 Dev Board"
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontWeight: 600 }}>Category *</label>
+                  <select
+                    value={editing.category_id ?? ''}
+                    onChange={e => setEditing({ ...editing, category_id: e.target.value })}
+                  >
+                    <option value="">— select category —</option>
+                    {categories.map((c: any) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="prod-grid-2" style={{ marginTop: 12 }}>
+                <div>
+                  <label style={{ fontWeight: 600 }}>Unit of Measure (UOM) *</label>
+                  <select
+                    required
+                    value={editing.uom ?? 'PCS'}
+                    onChange={e => setEditing({ ...editing, uom: e.target.value })}
+                  >
+                    {UOM_OPTIONS.map(u => (
+                      <option key={u.value} value={u.value}>
+                        {u.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label>HSN / SAC Code</label>
+                  <input
+                    value={editing.hsn_code ?? ''}
+                    onChange={e => setEditing({ ...editing, hsn_code: e.target.value })}
+                    placeholder="e.g. 85423100"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Section 2: Pricing & Taxation */}
+            <div className="prod-form-section">
+              <div className="prod-form-section-title">
+                <span>💰</span> Pricing & Taxation
+              </div>
+              <div className="prod-grid-3">
+                <div>
+                  <label>Cost Price (₹)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    value={editing.cost_price ?? 0}
+                    onChange={e => setEditing({ ...editing, cost_price: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontWeight: 600 }}>Sale Price (₹) *</label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    required
+                    value={editing.sale_price ?? 0}
+                    onChange={e => setEditing({ ...editing, sale_price: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <label>GST Rate (%)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    max="100"
+                    value={editing.tax_rate ?? 18}
+                    onChange={e => setEditing({ ...editing, tax_rate: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Section 3: Inventory Reorder & Status */}
+            <div className="prod-form-section" style={{ marginBottom: 8 }}>
+              <div className="prod-form-section-title">
+                <span>📦</span> Inventory Planning & Status
+              </div>
+              <div className="prod-grid-3">
+                <div>
+                  <label>Reorder Level (Alert threshold)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    value={editing.reorder_level ?? 0}
+                    onChange={e => setEditing({ ...editing, reorder_level: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <label>Reorder Quantity</label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    value={editing.reorder_qty ?? 0}
+                    onChange={e => setEditing({ ...editing, reorder_qty: e.target.value })}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', paddingTop: 20 }}>
+                  <label className="row" style={{ cursor: 'pointer', margin: 0, fontWeight: 600 }}>
+                    <input
+                      type="checkbox"
+                      style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                      checked={editing.active !== false}
+                      onChange={e => setEditing({ ...editing, active: e.target.checked })}
+                    />
+                    <span style={{ fontSize: 13, color: editing.active !== false ? 'var(--text)' : 'var(--muted)' }}>
+                      Active in Catalog
+                    </span>
+                  </label>
+                </div>
               </div>
             </div>
 
