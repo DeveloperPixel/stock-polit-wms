@@ -7,7 +7,8 @@ import { apiCall, date, money, qty, useData } from '@/lib/client';
 export default function PODetail({ params }: { params: { id: string } }) {
   const { data: po, reload } = useData<any>(`/api/purchase-orders/${params.id}`);
   const { data: user } = useData<any>('/api/auth/me');
-  const [rcv, setRcv] = useState<Record<number, { r: string; x: string }>>({});
+  const { data: lookups } = useData<any>('/api/lookups');
+  const [rcv, setRcv] = useState<Record<number, { r: string; x: string; batch?: string; expiry?: string; bin_id?: string }>>({});
   const [inv, setInv] = useState('');
   const [err, setErr] = useState('');
   const [ok, setOk] = useState('');
@@ -37,6 +38,7 @@ export default function PODetail({ params }: { params: { id: string } }) {
 
   const isManagerOrAdmin = user?.role === 'ADMIN' || user?.role === 'MANAGER';
   const canReceive = ['APPROVED', 'PARTIAL'].includes(po.status);
+  const whBins = (lookups?.bins || []).filter((b: any) => String(b.warehouse_id) === String(po.warehouse_id));
 
   return (
     <>
@@ -113,6 +115,9 @@ export default function PODetail({ params }: { params: { id: string } }) {
                 <>
                   <th className="num">Receive now</th>
                   <th className="num">Rejected</th>
+                  <th>Batch / Lot #</th>
+                  <th>Expiry Date</th>
+                  <th>Put-away Bin</th>
                 </>
               )}
             </tr>
@@ -158,11 +163,75 @@ export default function PODetail({ params }: { params: { id: string } }) {
                           onChange={e =>
                             setRcv({
                               ...rcv,
-                              [i.id]: { r: rcv[i.id]?.r ?? '', x: e.target.value }
+                              [i.id]: {
+                                ...rcv[i.id],
+                                r: rcv[i.id]?.r ?? '',
+                                x: e.target.value
+                              }
                             })
                           }
                           disabled={pend <= 0}
                         />
+                      </td>
+                      <td style={{ width: 130 }}>
+                        <input
+                          placeholder="e.g. B-2026-01"
+                          value={rcv[i.id]?.batch ?? ''}
+                          onChange={e =>
+                            setRcv({
+                              ...rcv,
+                              [i.id]: {
+                                ...rcv[i.id],
+                                r: rcv[i.id]?.r ?? '',
+                                x: rcv[i.id]?.x ?? '',
+                                batch: e.target.value
+                              }
+                            })
+                          }
+                          disabled={pend <= 0}
+                        />
+                      </td>
+                      <td style={{ width: 140 }}>
+                        <input
+                          type="date"
+                          value={rcv[i.id]?.expiry ?? ''}
+                          onChange={e =>
+                            setRcv({
+                              ...rcv,
+                              [i.id]: {
+                                ...rcv[i.id],
+                                r: rcv[i.id]?.r ?? '',
+                                x: rcv[i.id]?.x ?? '',
+                                expiry: e.target.value
+                              }
+                            })
+                          }
+                          disabled={pend <= 0}
+                        />
+                      </td>
+                      <td style={{ width: 130 }}>
+                        <select
+                          value={rcv[i.id]?.bin_id ?? ''}
+                          onChange={e =>
+                            setRcv({
+                              ...rcv,
+                              [i.id]: {
+                                ...rcv[i.id],
+                                r: rcv[i.id]?.r ?? '',
+                                x: rcv[i.id]?.x ?? '',
+                                bin_id: e.target.value
+                              }
+                            })
+                          }
+                          disabled={pend <= 0}
+                        >
+                          <option value="">— bin —</option>
+                          {whBins.map((b: any) => (
+                            <option key={b.id} value={b.id}>
+                              {b.code} ({b.description || 'General'})
+                            </option>
+                          ))}
+                        </select>
                       </td>
                     </>
                   )}
@@ -178,7 +247,7 @@ export default function PODetail({ params }: { params: { id: string } }) {
               <th className="num">
                 {money(po.subtotal)} / {money(po.tax_total)} / <b>{money(po.total)}</b>
               </th>
-              {canReceive && <th colSpan={2} />}
+              {canReceive && <th colSpan={5} />}
             </tr>
           </tfoot>
         </table>
@@ -218,7 +287,10 @@ export default function PODetail({ params }: { params: { id: string } }) {
                 items: Object.entries(rcv).map(([k, v]) => ({
                   po_item_id: Number(k),
                   qty_received: Number(v.r || 0),
-                  qty_rejected: Number(v.x || 0)
+                  qty_rejected: Number(v.x || 0),
+                  batch_no: v.batch || null,
+                  expiry_date: v.expiry || null,
+                  bin_id: v.bin_id ? Number(v.bin_id) : null
                 }))
               })
             }

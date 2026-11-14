@@ -142,6 +142,9 @@ CREATE TABLE stock_movements (
   ref_id        INT,
   ref_no        TEXT,
   note          TEXT,
+  batch_no      TEXT,
+  expiry_date   DATE,
+  bin_id        INT REFERENCES bin_locations(id),
   balance_after NUMERIC(14,3),
   created_by    INT REFERENCES users(id),
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()

@@ -62,6 +62,9 @@ export const grnSchema = z.object({
   items: z.array(z.object({
     po_item_id: z.coerce.number().int().positive(),
     qty_received: num.min(0), qty_rejected: num.min(0).default(0),
+    batch_no: optStr,
+    expiry_date: optStr,
+    bin_id: z.coerce.number().int().positive().optional().nullable(),
   })).min(1),
 });
 

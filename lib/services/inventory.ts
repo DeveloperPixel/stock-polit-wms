@@ -53,9 +53,10 @@ export const stockLevels = (warehouseId?: number, search?: string) => query(
     ORDER BY sku, warehouse_code`, [warehouseId ?? null, search || null]);
 
 export const movements = (productId?: number, limit = 200) => query(
-  `SELECT m.*, p.sku, p.name, w.code AS warehouse, u.name AS user_name
+  `SELECT m.*, p.sku, p.name, w.code AS warehouse, u.name AS user_name, b.code AS bin_code
      FROM stock_movements m JOIN products p ON p.id=m.product_id JOIN warehouses w ON w.id=m.warehouse_id
      LEFT JOIN users u ON u.id=m.created_by
+     LEFT JOIN bin_locations b ON b.id=m.bin_id
     WHERE ($1::int IS NULL OR m.product_id=$1) ORDER BY m.id DESC LIMIT $2`, [productId ?? null, limit]);
 
 export const listTransfers = () => query(

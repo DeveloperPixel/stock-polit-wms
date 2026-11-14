@@ -52,7 +52,7 @@ export async function cancelPO(id: number) {
 
 /** Goods Receipt: posts GRN, increases stock via ledger, updates PO status */
 export async function receivePO(id: number, d: { invoice_no: string | null; notes: string | null;
-  items: { po_item_id: number; qty_received: number; qty_rejected: number }[] }, userId: number) {
+  items: { po_item_id: number; qty_received: number; qty_rejected: number; batch_no?: string | null; expiry_date?: string | null; bin_id?: number | null }[] }, userId: number) {
   return tx(async c => {
     const po = await lockPO(c, id);
     if (!['APPROVED', 'PARTIAL'].includes(po.status)) throw new HttpError(422, `PO must be APPROVED to receive (is ${po.status})`);
@@ -73,14 +73,16 @@ export async function receivePO(id: number, d: { invoice_no: string | null; note
       if (i.qty_received > pending) throw new HttpError(422, `Receiving ${i.qty_received} exceeds pending ${pending}`);
 
       await c.query(
-        `INSERT INTO goods_receipt_items(grn_id,po_item_id,product_id,qty_received,qty_rejected,unit_cost)
-         VALUES ($1,$2,$3,$4,$5,$6)`, [grn.id, line.id, line.product_id, i.qty_received, i.qty_rejected, line.unit_price]);
+        `INSERT INTO goods_receipt_items(grn_id,po_item_id,product_id,qty_received,qty_rejected,unit_cost,batch_no,expiry_date)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [grn.id, line.id, line.product_id, i.qty_received, i.qty_rejected, line.unit_price, i.batch_no || null, i.expiry_date || null]);
       if (i.qty_received > 0) {
         await c.query(`UPDATE purchase_order_items SET qty_received = qty_received + $1 WHERE id=$2`, [i.qty_received, line.id]);
         await c.query(
-          `INSERT INTO stock_movements(product_id,warehouse_id,movement,qty,unit_cost,ref_type,ref_id,ref_no,created_by)
-           VALUES ($1,$2,'GRN',$3,$4,'GRN',$5,$6,$7)`,
-          [line.product_id, po.warehouse_id, i.qty_received, line.unit_price, grn.id, grn.grn_number, userId]);
+          `INSERT INTO stock_movements(product_id,warehouse_id,movement,qty,unit_cost,ref_type,ref_id,ref_no,note,batch_no,expiry_date,bin_id,created_by)
+           VALUES ($1,$2,'GRN',$3,$4,'GRN',$5,$6,$7,$8,$9,$10,$11)`,
+          [line.product_id, po.warehouse_id, i.qty_received, line.unit_price, grn.id, grn.grn_number,
+           i.batch_no ? `Batch: ${i.batch_no}` : null, i.batch_no || null, i.expiry_date || null, i.bin_id || null, userId]);
         value += i.qty_received * Number(line.unit_price) * (1 + Number(line.tax_rate) / 100);
       }
     }

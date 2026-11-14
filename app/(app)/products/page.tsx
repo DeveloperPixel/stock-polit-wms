@@ -1,6 +1,7 @@
 'use client';
 import { useMemo, useState } from 'react';
 import BarcodePreview from '@/components/BarcodePreview';
+import BarcodeScannerModal from '@/components/BarcodeScannerModal';
 import EmptyState from '@/components/EmptyState';
 import { useToast } from '@/components/Toast';
 import { apiCall, money, qty, useData } from '@/lib/client';
@@ -18,6 +19,7 @@ export default function Products() {
   const [saving, setSaving] = useState(false);
   const [duplicateProduct, setDuplicateProduct] = useState<any | null>(null);
   const [viewBarcodeProduct, setViewBarcodeProduct] = useState<any | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
   const { success, error: toastErr } = useToast();
 
   const categories = lk?.categories ?? [];
@@ -162,6 +164,19 @@ export default function Products() {
             onChange={e => setQ(e.target.value)}
             style={{ width: 200 }}
           />
+
+          <button
+            type="button"
+            className="btn"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            onClick={() => setScannerOpen(true)}
+            title="Scan product barcode with camera"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 5v14M8 5v14M12 5v14M17 5v14M21 5v14" />
+            </svg>
+            Scan Barcode
+          </button>
 
           <button
             className="btn primary"
@@ -676,6 +691,16 @@ export default function Products() {
           </div>
         </div>
       )}
+
+      {/* Barcode Scanner Modal */}
+      <BarcodeScannerModal
+        isOpen={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onDetected={(code: string) => {
+          setQ(code);
+          success(`Scanned: ${code}`);
+        }}
+      />
     </>
   );
 }

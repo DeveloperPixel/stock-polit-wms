@@ -20,14 +20,18 @@ export default function LineItems({ lines, setLines, products, mode, priceFor }:
   const total = lines.reduce((s, l) => s + Number(l.qty || 0) * Number(l.unit_price || 0) * (1 + Number(l.tax_rate || 0) / 100), 0);
 
   return (
-    <div className="card" style={{ padding: 0 }}>
-      <table>
+    <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
+      <table style={{ minWidth: 540 }}>
         <thead><tr>
-          <th style={{ width: '40%' }}>Product</th>
-          <th className="num">{mode === 'adjust' ? 'Qty change (+/−)' : 'Qty'}</th>
-          {priced && <><th className="num">Unit price</th><th className="num">Tax %</th><th className="num">Line total</th></>}
-          {mode === 'adjust' && <th className="num">Unit cost (for +)</th>}
-          <th />
+          <th style={{ width: '38%' }}>Product</th>
+          <th className="num" style={{ minWidth: 80 }}>{mode === 'adjust' ? 'Qty change (+/−)' : 'Qty'}</th>
+          {priced && <>
+            <th className="num" style={{ minWidth: 90 }}>Unit price</th>
+            <th className="num" style={{ minWidth: 70 }}>Tax %</th>
+            <th className="num" style={{ minWidth: 95 }}>Line total</th>
+          </>}
+          {mode === 'adjust' && <th className="num" style={{ minWidth: 100 }}>Unit cost (for +)</th>}
+          <th style={{ width: 44 }} />
         </tr></thead>
         <tbody>
           {lines.map((l, i) => (
