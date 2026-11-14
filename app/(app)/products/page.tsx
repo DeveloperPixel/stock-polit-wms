@@ -243,7 +243,7 @@ export default function Products() {
                     <th className="num">Price</th>
                     <th className="num">Reorder lvl</th>
                     <th>Status</th>
-                    <th />
+                    <th style={{ textAlign: 'right' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
