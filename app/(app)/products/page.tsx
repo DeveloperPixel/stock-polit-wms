@@ -41,6 +41,18 @@ export default function Products() {
     { value: 'DOZ', label: 'DOZ — Dozen' },
   ];
 
+  // Standard Category-to-HSN defaults & GST tax slabs
+  const CATEGORY_HSN_DEFAULTS: Record<string, { hsn: string; gst: number }> = {
+    electronics: { hsn: '85423100', gst: 18 },  // Integrated circuits / Microcontrollers
+    batteries: { hsn: '85076000', gst: 18 },    // Lithium-ion batteries
+    packaging: { hsn: '48191010', gst: 12 },    // Corrugated cartons / boxes
+    spares: { hsn: '85369090', gst: 18 },       // Electrical connectors / plugs
+    hardware: { hsn: '73181500', gst: 18 },     // Screws, bolts, fasteners
+    textiles: { hsn: '52081100', gst: 5 },      // Fabrics / apparel
+    chemicals: { hsn: '38249900', gst: 18 },    // Chemical preparations
+    food: { hsn: '21069099', gst: 12 },         // Packaged food preparations
+  };
+
   // Group products by Category Name
   const grouped = useMemo(() => {
     if (!products) return new Map<string, any[]>();
@@ -131,10 +143,23 @@ export default function Products() {
     setEditing({ ...editing, sku, barcode });
   }
 
-  // Handle Name or Category changes to auto-derive SKU & Barcode when both are present
+  // Handle Name or Category changes to auto-derive SKU, Barcode, and Category HSN defaults
   function handleNameOrCategoryChange(patch: Partial<Record<string, any>>) {
     if (!editing) return;
     const next = { ...editing, ...patch };
+
+    // When category is changed for a new product, auto-fill recommended HSN and GST rate if empty
+    if (patch.category_id && !editing.id) {
+      const matchCat = categories.find((c: any) => String(c.id) === String(patch.category_id));
+      if (matchCat && matchCat.name) {
+        const catKey = matchCat.name.toLowerCase().trim();
+        const def = CATEGORY_HSN_DEFAULTS[catKey];
+        if (def) {
+          if (!next.hsn_code) next.hsn_code = def.hsn;
+          if (next.tax_rate === 18 || !next.tax_rate) next.tax_rate = def.gst;
+        }
+      }
+    }
 
     // For existing product being edited, preserve original SKU/barcode unless empty
     if (editing.id && editing.sku && editing.barcode) {
@@ -545,12 +570,27 @@ export default function Products() {
                 </div>
 
                 <div>
-                  <label>HSN / SAC Code</label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <label style={{ margin: 0 }}>HSN / SAC Code</label>
+                    <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                      Auto-suggested from category
+                    </span>
+                  </div>
                   <input
+                    list="hsn-suggestions"
                     value={editing.hsn_code ?? ''}
                     onChange={e => setEditing({ ...editing, hsn_code: e.target.value })}
                     placeholder="e.g. 85423100"
                   />
+                  <datalist id="hsn-suggestions">
+                    <option value="85423100">85423100 — Microcontrollers / Integrated Circuits (18%)</option>
+                    <option value="85076000">85076000 — Lithium-ion Batteries & Packs (18%)</option>
+                    <option value="48191010">48191010 — Corrugated Boxes & Cartons (12%)</option>
+                    <option value="85369090">85369090 — Electrical Connectors & Plugs (18%)</option>
+                    <option value="73181500">73181500 — Screws, Bolts & Fasteners (18%)</option>
+                    <option value="84713010">84713010 — Computers & Embedded Modules (18%)</option>
+                    <option value="85176290">85176290 — Network, Wi-Fi & Telecom Devices (18%)</option>
+                  </datalist>
                 </div>
               </div>
             </div>
