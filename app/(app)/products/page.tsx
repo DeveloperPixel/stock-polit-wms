@@ -350,35 +350,47 @@ export default function Products() {
               </div>
               <div className="prod-grid-2">
                 <div>
-                  <div className="row" style={{ justifyContent: 'space-between', marginBottom: 4 }}>
-                    <label style={{ margin: 0, fontWeight: 600 }}>SKU (Auto-Generated) *</label>
+                  <label style={{ marginBottom: 6, fontWeight: 600 }}>SKU (Auto-Generated) *</label>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
+                    <input
+                      required
+                      readOnly
+                      tabIndex={-1}
+                      value={editing.sku ?? ''}
+                      placeholder="Auto-generated from Name & Category"
+                      style={{
+                        background: '#f1f5f9',
+                        color: '#475569',
+                        cursor: 'default',
+                        fontWeight: 700,
+                        pointerEvents: 'none',
+                        userSelect: 'none',
+                        fontFamily: 'monospace',
+                        flex: 1
+                      }}
+                    />
                     {!editing.id && (
                       <button
                         type="button"
-                        className="btn sm"
-                        style={{ padding: '2px 7px', fontSize: 11 }}
+                        className="btn"
+                        style={{
+                          whiteSpace: 'nowrap',
+                          padding: '0 14px',
+                          fontSize: 12.5,
+                          fontWeight: 600,
+                          background: '#f8fafc',
+                          borderColor: '#cbd5e1',
+                          color: 'var(--text)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
                         onClick={generateSKU}
                       >
-                        ⚡ Re-generate
+                        Regenerate
                       </button>
                     )}
                   </div>
-                  <input
-                    required
-                    readOnly
-                    tabIndex={-1}
-                    value={editing.sku ?? ''}
-                    placeholder="Auto-generated from Name & Category"
-                    style={{
-                      background: '#f1f5f9',
-                      color: '#475569',
-                      cursor: 'default',
-                      fontWeight: 700,
-                      pointerEvents: 'none',
-                      userSelect: 'none',
-                      fontFamily: 'monospace'
-                    }}
-                  />
                 </div>
 
                 <div>
