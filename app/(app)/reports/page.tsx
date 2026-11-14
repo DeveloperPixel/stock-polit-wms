@@ -7,6 +7,7 @@ import { money, qty, useData } from '@/lib/client';
 export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState<'valuation' | 'low_stock' | 'vendor_payables' | 'movements'>('valuation');
   const [warehouseFilter, setWarehouseFilter] = useState('');
+  const [showExportModal, setShowExportModal] = useState(false);
   const { data: lookups } = useData<any>('/api/lookups');
 
   const { data: reportData, isValidating } = useData<any[]>(
@@ -15,8 +16,10 @@ export default function ReportsPage() {
 
   const warehouses = lookups?.warehouses ?? [];
 
-  // Export CSV handler
-  function exportCSV() {
+  const exportFileName = `stockpilot-report-${activeTab}-${new Date().toISOString().slice(0, 10)}.csv`;
+
+  // Download CSV file
+  function downloadCSV() {
     if (!reportData || reportData.length === 0) return;
     const headers = Object.keys(reportData[0]);
     const csvContent = [
@@ -36,10 +39,11 @@ export default function ReportsPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `stockpilot-report-${activeTab}-${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', exportFileName);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    setShowExportModal(false);
   }
 
   // Calculate summary totals
@@ -80,7 +84,7 @@ export default function ReportsPage() {
           <button
             type="button"
             className="btn"
-            onClick={exportCSV}
+            onClick={() => setShowExportModal(true)}
             disabled={!reportData || reportData.length === 0}
             style={{
               background: '#0B1F4B',
@@ -345,6 +349,91 @@ export default function ReportsPage() {
           </div>
         )}
       </div>
+
+      {/* CSV Preview & Download Modal */}
+      {showExportModal && reportData && reportData.length > 0 && (
+        <div
+          className="modal-bg"
+          onClick={() => setShowExportModal(false)}
+        >
+          <div
+            className="modal"
+            style={{ maxWidth: 780, padding: 24 }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid var(--line)', paddingBottom: 12 }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 18 }}>Export CSV Preview</h3>
+                <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>
+                  Showing sample rows from {reportData.length} records ready to download as <b>{exportFileName}</b>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn sm"
+                style={{ padding: '4px 8px', fontSize: 16, border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--muted)' }}
+                onClick={() => setShowExportModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Formatted CSV Preview Table */}
+            <div style={{ border: '1px solid var(--line)', borderRadius: 8, overflow: 'hidden', marginBottom: 16, background: '#fafbfe' }}>
+              <div style={{ overflowX: 'auto', maxHeight: 260 }}>
+                <table style={{ margin: 0, fontSize: 12 }}>
+                  <thead>
+                    <tr>
+                      {Object.keys(reportData[0]).map(k => (
+                        <th key={k} style={{ padding: '8px 12px', background: '#f1f5f9' }}>
+                          {k}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reportData.slice(0, 5).map((row, idx) => (
+                      <tr key={idx}>
+                        {Object.keys(reportData[0]).map(k => (
+                          <td key={k} style={{ padding: '7px 12px', whiteSpace: 'nowrap' }}>
+                            {row[k] !== null && row[k] !== undefined ? String(row[k]) : '—'}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {reportData.length > 5 && (
+                <div style={{ padding: '6px 12px', fontSize: 11.5, color: 'var(--muted)', background: '#fff', borderTop: '1px solid var(--line)' }}>
+                  + {reportData.length - 5} more records included in the full export file.
+                </div>
+              )}
+            </div>
+
+            <div className="row" style={{ justifyContent: 'flex-end', gap: 10 }}>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setShowExportModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn primary"
+                onClick={downloadCSV}
+                style={{
+                  background: '#0B1F4B',
+                  borderColor: '#0B1F4B'
+                }}
+              >
+                Download CSV ({reportData.length} rows)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
