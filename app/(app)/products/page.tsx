@@ -1,5 +1,6 @@
 'use client';
 import { useMemo, useState } from 'react';
+import BarcodePreview from '@/components/BarcodePreview';
 import EmptyState from '@/components/EmptyState';
 import { useToast } from '@/components/Toast';
 import { apiCall, money, qty, useData } from '@/lib/client';
@@ -378,6 +379,17 @@ export default function Products() {
                   />
                 </div>
               </div>
+
+              {/* Barcode Visual Preview & Image Download */}
+              {editing.barcode && (
+                <div style={{ marginTop: 12 }}>
+                  <BarcodePreview
+                    value={editing.barcode}
+                    sku={editing.sku}
+                    productName={editing.name}
+                  />
+                </div>
+              )}
 
               <div className="prod-grid-2" style={{ marginTop: 12 }}>
                 <div>
