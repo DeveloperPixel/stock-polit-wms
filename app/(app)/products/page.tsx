@@ -15,9 +15,26 @@ export default function Products() {
   const [editing, setEditing] = useState<Record<string, any> | null>(null);
   const [formErr, setFormErr] = useState('');
   const [saving, setSaving] = useState(false);
+  const [duplicateProduct, setDuplicateProduct] = useState<any | null>(null);
   const { success, error: toastErr } = useToast();
 
   const categories = lk?.categories ?? [];
+
+  const UOM_OPTIONS = [
+    { value: 'PCS', label: 'PCS — Pieces' },
+    { value: 'BOX', label: 'BOX — Boxes' },
+    { value: 'PKG', label: 'PKG — Packages / Packets' },
+    { value: 'SET', label: 'SET — Sets' },
+    { value: 'NOS', label: 'NOS — Numbers' },
+    { value: 'KGS', label: 'KGS — Kilograms' },
+    { value: 'GMS', label: 'GMS — Grams' },
+    { value: 'MTR', label: 'MTR — Meters' },
+    { value: 'LTR', label: 'LTR — Liters' },
+    { value: 'ML', label: 'ML — Milliliters' },
+    { value: 'ROLL', label: 'ROLL — Rolls' },
+    { value: 'PAIR', label: 'PAIR — Pairs' },
+    { value: 'DOZ', label: 'DOZ — Dozen' },
+  ];
 
   // Group products by Category Name
   const grouped = useMemo(() => {
@@ -42,9 +59,28 @@ export default function Products() {
     return map;
   }, [products, catFilter, categories]);
 
-  // Helper to generate SKU: [PREFIX]-[NAME_CLEANED]-[RANDOM_INT]
+  // EAN-13 style standard Barcode Generator
+  function generateBarcode(skuText: string) {
+    const chars = skuText.replace(/[^A-Z0-9]/g, '');
+    let hash = 890000000000; // Standard 890 GS1 prefix
+    for (let i = 0; i < chars.length; i++) {
+      hash = (hash * 31 + chars.charCodeAt(i)) % 999999999999;
+    }
+    const base12 = String(hash).padStart(12, '8');
+    // Compute EAN-13 check digit
+    let sum = 0;
+    for (let i = 0; i < 12; i++) {
+      sum += parseInt(base12[i]) * (i % 2 === 0 ? 1 : 3);
+    }
+    const checkDigit = (10 - (sum % 10)) % 10;
+    return `${base12}${checkDigit}`;
+  }
+
+  // Generate SKU & Barcode, and check for existing SKU collisions
   function generateSKU() {
     if (!editing) return;
+    setDuplicateProduct(null);
+
     let prefix = 'PRD';
     if (editing.category_id) {
       const match = categories.find((c: any) => String(c.id) === String(editing.category_id));
@@ -61,7 +97,15 @@ export default function Products() {
 
     const randomNum = Math.floor(100 + Math.random() * 900);
     const sku = namePart ? `${prefix}-${namePart}-${randomNum}` : `${prefix}-${randomNum}`;
-    setEditing({ ...editing, sku });
+    const barcode = generateBarcode(sku);
+
+    // Check if generated SKU already exists
+    const existing = products?.find(p => p.sku === sku && p.id !== editing.id);
+    if (existing) {
+      setDuplicateProduct(existing);
+    }
+
+    setEditing({ ...editing, sku, barcode });
   }
 
   async function save(e: React.FormEvent) {
@@ -77,6 +121,7 @@ export default function Products() {
         success('Product created successfully');
       }
       setEditing(null);
+      setDuplicateProduct(null);
       reload();
     } catch (err: any) {
       setFormErr(err.message);
@@ -118,14 +163,15 @@ export default function Products() {
 
           <button
             className="btn primary"
-            onClick={() =>
+            onClick={() => {
+              setDuplicateProduct(null);
               setEditing({
                 uom: 'PCS',
                 tax_rate: 18,
                 active: true,
                 category_id: categories[0]?.id || ''
-              })
-            }
+              });
+            }}
           >
             + New Product
           </button>
@@ -142,14 +188,15 @@ export default function Products() {
                 : 'No products added yet. Click "+ New Product" to add your first product.'
             }
             actionText="+ New Product"
-            onAction={() =>
+            onAction={() => {
+              setDuplicateProduct(null);
               setEditing({
                 uom: 'PCS',
                 tax_rate: 18,
                 active: true,
                 category_id: categories[0]?.id || ''
-              })
-            }
+              });
+            }}
             icon="🏷️"
           />
         </div>
@@ -172,12 +219,24 @@ export default function Products() {
             </div>
 
             <div style={{ overflowX: 'auto' }}>
-              <table>
+              <table className="table-fixed table-products">
+                <colgroup>
+                  <col className="col-sku" />
+                  <col className="col-name" />
+                  <col className="col-uom" />
+                  <col className="col-barcode" />
+                  <col className="col-cost" />
+                  <col className="col-price" />
+                  <col className="col-reorder" />
+                  <col className="col-status" />
+                  <col className="col-actions" />
+                </colgroup>
                 <thead>
                   <tr>
                     <th>SKU</th>
                     <th>Name</th>
                     <th>UOM</th>
+                    <th>Barcode</th>
                     <th className="num">Cost</th>
                     <th className="num">Price</th>
                     <th className="num">Reorder lvl</th>
@@ -191,8 +250,13 @@ export default function Products() {
                       <td>
                         <b>{r.sku}</b>
                       </td>
-                      <td>{r.name}</td>
+                      <td title={r.name}>{r.name}</td>
                       <td>{r.uom}</td>
+                      <td>
+                        <span className="badge" style={{ fontFamily: 'monospace', letterSpacing: '0.05em' }}>
+                          {r.barcode || '—'}
+                        </span>
+                      </td>
                       <td className="num">{money(r.cost_price)}</td>
                       <td className="num">
                         <b>{money(r.sale_price)}</b>
@@ -204,7 +268,13 @@ export default function Products() {
                         </span>
                       </td>
                       <td className="right">
-                        <button className="btn sm" onClick={() => setEditing({ ...r })}>
+                        <button
+                          className="btn sm"
+                          onClick={() => {
+                            setDuplicateProduct(null);
+                            setEditing({ ...r });
+                          }}
+                        >
                           Edit
                         </button>
                       </td>
@@ -219,7 +289,13 @@ export default function Products() {
 
       {/* Product Create / Edit Modal */}
       {editing && (
-        <div className="modal-bg" onClick={() => setEditing(null)}>
+        <div
+          className="modal-bg"
+          onClick={() => {
+            setEditing(null);
+            setDuplicateProduct(null);
+          }}
+        >
           <form className="modal" onClick={e => e.stopPropagation()} onSubmit={save}>
             <h3 style={{ marginTop: 0 }}>
               {editing.id ? 'Edit Product' : 'New Product'}
@@ -228,7 +304,7 @@ export default function Products() {
             <div className="form">
               <div>
                 <div className="row" style={{ justifyContent: 'space-between', marginBottom: 4 }}>
-                  <label style={{ margin: 0 }}>SKU *</label>
+                  <label style={{ margin: 0 }}>SKU (Auto-Generated) *</label>
                   {!editing.id && (
                     <button
                       type="button"
@@ -236,15 +312,23 @@ export default function Products() {
                       style={{ padding: '2px 7px', fontSize: 11 }}
                       onClick={generateSKU}
                     >
-                      ⚡ Auto-generate
+                      ⚡ Generate SKU &amp; Barcode
                     </button>
                   )}
                 </div>
+                {/* Non-inputable read-only SKU field */}
                 <input
                   required
+                  readOnly
+                  tabIndex={-1}
                   value={editing.sku ?? ''}
-                  onChange={e => setEditing({ ...editing, sku: e.target.value })}
-                  placeholder="e.g. ELE-ESP32"
+                  placeholder="Click 'Generate' or enter Name"
+                  style={{
+                    background: '#f1f5f9',
+                    color: '#334155',
+                    cursor: 'not-allowed',
+                    fontWeight: 600
+                  }}
                 />
               </div>
 
@@ -274,18 +358,33 @@ export default function Products() {
               </div>
 
               <div>
-                <label>Unit of measure</label>
-                <input
+                <label>Unit of measure (UOM) *</label>
+                <select
+                  required
                   value={editing.uom ?? 'PCS'}
                   onChange={e => setEditing({ ...editing, uom: e.target.value })}
-                />
+                >
+                  {UOM_OPTIONS.map(u => (
+                    <option key={u.value} value={u.value}>
+                      {u.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
-                <label>Barcode</label>
+                <label>Barcode (Auto-Generated)</label>
                 <input
+                  readOnly
+                  tabIndex={-1}
                   value={editing.barcode ?? ''}
-                  onChange={e => setEditing({ ...editing, barcode: e.target.value })}
+                  placeholder="Generated with SKU"
+                  style={{
+                    background: '#f1f5f9',
+                    color: '#334155',
+                    cursor: 'not-allowed',
+                    fontFamily: 'monospace'
+                  }}
                 />
               </div>
 
@@ -360,16 +459,62 @@ export default function Products() {
               </div>
             </div>
 
+            {/* Bottom Alert Popup for Duplicate SKU Collision */}
+            {duplicateProduct && (
+              <div
+                style={{
+                  marginTop: 16,
+                  padding: '12px 16px',
+                  background: '#fef2f2',
+                  border: '1px solid #f87171',
+                  borderRadius: 8,
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  gap: 12
+                }}
+              >
+                <div>
+                  <div style={{ color: '#991b1b', fontWeight: 700, fontSize: 13, marginBottom: 2 }}>
+                    ⚠️ Existing SKU Collision Detected!
+                  </div>
+                  <div style={{ color: '#7f1d1d', fontSize: 12.5, lineHeight: 1.4 }}>
+                    An existing product already uses SKU <b>{duplicateProduct.sku}</b>:
+                    <br />
+                    • <b>Name:</b> {duplicateProduct.name} | <b>Price:</b> {money(duplicateProduct.sale_price)} | <b>UOM:</b> {duplicateProduct.uom}
+                    <br />
+                    <span style={{ fontSize: 11.5, color: '#b91c1c' }}>
+                      Click "Generate SKU" again to produce a new unique code.
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn sm"
+                  style={{ background: '#fff', borderColor: '#fca5a5', color: '#991b1b', flexShrink: 0 }}
+                  onClick={() => setDuplicateProduct(null)}
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+
             <div className="row" style={{ marginTop: 20, justifyContent: 'flex-end' }}>
               <button
                 type="button"
                 className="btn"
                 disabled={saving}
-                onClick={() => setEditing(null)}
+                onClick={() => {
+                  setEditing(null);
+                  setDuplicateProduct(null);
+                }}
               >
                 Cancel
               </button>
-              <button className={`btn primary ${saving ? 'loading' : ''}`} disabled={saving}>
+              <button
+                className={`btn primary ${saving ? 'loading' : ''}`}
+                disabled={saving || !!duplicateProduct}
+              >
                 {saving && <span className="btn-spinner" />}
                 {saving ? 'Saving…' : 'Save Product'}
               </button>

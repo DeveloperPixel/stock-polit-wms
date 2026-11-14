@@ -140,7 +140,16 @@ export default function Stock() {
                     </div>
 
                     <div style={{ overflowX: 'auto' }}>
-                      <table>
+                      <table className="table-fixed table-stock">
+                        <colgroup>
+                          <col className="col-sku" />
+                          <col className="col-product" />
+                          <col className="col-qty" />
+                          <col className="col-qty" />
+                          <col className="col-qty" />
+                          <col className="col-val" />
+                          <col className="col-val" />
+                        </colgroup>
                         <thead>
                           <tr>
                             <th>SKU</th>
@@ -156,7 +165,7 @@ export default function Stock() {
                           {items.map(r => (
                             <tr key={`${r.product_id}-${r.warehouse_id}`}>
                               <td><b>{r.sku}</b></td>
-                              <td>{r.name}</td>
+                              <td title={r.name}>{r.name}</td>
                               <td className="num">
                                 {qty(r.qty_on_hand)} <span className="muted" style={{ fontSize: 11 }}>{r.uom}</span>
                               </td>

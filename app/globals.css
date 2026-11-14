@@ -199,6 +199,42 @@ a {
   min-width: 0;
 }
 
+/* ---------------- Category Table Column Alignment ---------------- */
+.table-fixed {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.table-fixed th,
+.table-fixed td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Products catalog column widths */
+.table-products {
+  min-width: 960px;
+}
+.table-products .col-sku { width: 14%; }
+.table-products .col-name { width: 24%; }
+.table-products .col-uom { width: 8%; }
+.table-products .col-barcode { width: 15%; }
+.table-products .col-cost { width: 10%; }
+.table-products .col-price { width: 10%; }
+.table-products .col-reorder { width: 9%; }
+.table-products .col-status { width: 8%; }
+.table-products .col-actions { width: 60px; }
+
+/* Stock levels column widths */
+.table-stock {
+  min-width: 860px;
+}
+.table-stock .col-sku { width: 16%; }
+.table-stock .col-product { width: 28%; }
+.table-stock .col-qty { width: 11%; }
+.table-stock .col-val { width: 12%; }
+
 /* ---------------- Topbar & Headings ---------------- */
 .topbar {
   display: flex;
