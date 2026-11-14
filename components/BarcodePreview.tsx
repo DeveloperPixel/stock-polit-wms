@@ -64,9 +64,16 @@ interface BarcodePreviewProps {
   sku?: string;
   productName?: string;
   className?: string;
+  showDownload?: boolean;
 }
 
-export default function BarcodePreview({ value, sku, productName, className }: BarcodePreviewProps) {
+export default function BarcodePreview({
+  value,
+  sku,
+  productName,
+  className,
+  showDownload = true
+}: BarcodePreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -174,31 +181,33 @@ export default function BarcodePreview({ value, sku, productName, className }: B
         />
       </div>
 
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', width: '100%', justifyContent: 'center' }}>
-        <button
-          type="button"
-          onClick={handleDownload}
-          className="btn sm"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            background: '#0B1F4B',
-            color: '#ffffff',
-            borderColor: '#0B1F4B',
-            fontWeight: 600,
-            fontSize: 12,
-            padding: '5px 12px'
-          }}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="7 10 12 15 17 10" />
-            <line x1="12" y1="15" x2="12" y2="3" />
-          </svg>
-          Download Barcode Image (PNG)
-        </button>
-      </div>
+      {showDownload && (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', width: '100%', justifyContent: 'center' }}>
+          <button
+            type="button"
+            onClick={handleDownload}
+            className="btn sm"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              background: '#0B1F4B',
+              color: '#ffffff',
+              borderColor: '#0B1F4B',
+              fontWeight: 600,
+              fontSize: 12,
+              padding: '5px 12px'
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Download Barcode Image (PNG)
+          </button>
+        </div>
+      )}
     </div>
   );
 }

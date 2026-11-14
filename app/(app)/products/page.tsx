@@ -413,13 +413,14 @@ export default function Products() {
                 </div>
               </div>
 
-              {/* Barcode Visual Preview & Image Download */}
+              {/* Barcode Visual Preview only (no download button in form) */}
               {editing.barcode && (
                 <div style={{ marginTop: 12 }}>
                   <BarcodePreview
                     value={editing.barcode}
                     sku={editing.sku}
                     productName={editing.name}
+                    showDownload={false}
                   />
                 </div>
               )}
