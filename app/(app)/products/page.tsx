@@ -609,11 +609,27 @@ export default function Products() {
                         fontWeight: 600,
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: 4
+                        gap: 5
                       }}
                       title="Browse common HSN codes"
                     >
-                      Suggestions {hsnDropdownOpen ? '▲' : '▼'}
+                      Suggestions
+                      <svg
+                        width="13"
+                        height="13"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        style={{
+                          transform: hsnDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                          transition: 'transform 0.18s ease'
+                        }}
+                      >
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
                     </button>
                   </div>
 
