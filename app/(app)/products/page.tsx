@@ -53,6 +53,18 @@ export default function Products() {
     food: { hsn: '21069099', gst: 12 },         // Packaged food preparations
   };
 
+  const HSN_COMMON_OPTIONS = [
+    { code: '85423100', label: '85423100 — Microcontrollers & Integrated Circuits (18% GST)', gst: 18 },
+    { code: '85076000', label: '85076000 — Lithium-ion Batteries & Battery Packs (18% GST)', gst: 18 },
+    { code: '48191010', label: '48191010 — Corrugated Cartons & Packing Boxes (12% GST)', gst: 12 },
+    { code: '85369090', label: '85369090 — Electrical Connectors, Plugs & Sockets (18% GST)', gst: 18 },
+    { code: '73181500', label: '73181500 — Screws, Bolts, Nuts & Fasteners (18% GST)', gst: 18 },
+    { code: '84713010', label: '84713010 — Computers & Embedded Processing Modules (18% GST)', gst: 18 },
+    { code: '85176290', label: '85176290 — Network, Wi-Fi & Communication Devices (18% GST)', gst: 18 },
+    { code: '39231090', label: '39231090 — Plastic Crates, Trays & Packaging Articles (18% GST)', gst: 18 },
+    { code: '85044090', label: '85044090 — SMPS, Power Adapters & Chargers (18% GST)', gst: 18 },
+  ];
+
   // Group products by Category Name
   const grouped = useMemo(() => {
     if (!products) return new Map<string, any[]>();
@@ -576,21 +588,36 @@ export default function Products() {
                       Auto-suggested from category
                     </span>
                   </div>
-                  <input
-                    list="hsn-suggestions"
-                    value={editing.hsn_code ?? ''}
-                    onChange={e => setEditing({ ...editing, hsn_code: e.target.value })}
-                    placeholder="e.g. 85423100"
-                  />
-                  <datalist id="hsn-suggestions">
-                    <option value="85423100">85423100 — Microcontrollers / Integrated Circuits (18%)</option>
-                    <option value="85076000">85076000 — Lithium-ion Batteries & Packs (18%)</option>
-                    <option value="48191010">48191010 — Corrugated Boxes & Cartons (12%)</option>
-                    <option value="85369090">85369090 — Electrical Connectors & Plugs (18%)</option>
-                    <option value="73181500">73181500 — Screws, Bolts & Fasteners (18%)</option>
-                    <option value="84713010">84713010 — Computers & Embedded Modules (18%)</option>
-                    <option value="85176290">85176290 — Network, Wi-Fi & Telecom Devices (18%)</option>
-                  </datalist>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'stretch' }}>
+                    <input
+                      style={{ flex: 1, fontFamily: 'monospace' }}
+                      value={editing.hsn_code ?? ''}
+                      onChange={e => setEditing({ ...editing, hsn_code: e.target.value })}
+                      placeholder="e.g. 85423100"
+                    />
+                    <select
+                      style={{ width: 'auto', maxWidth: 175, fontSize: 12, padding: '7px 8px', background: '#f8fafc', color: 'var(--text)' }}
+                      value=""
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (!val) return;
+                        const match = HSN_COMMON_OPTIONS.find(o => o.code === val);
+                        setEditing({
+                          ...editing,
+                          hsn_code: val,
+                          tax_rate: match ? match.gst : editing.tax_rate
+                        });
+                      }}
+                      title="Quick pick common HSN codes"
+                    >
+                      <option value="">▼ Select HSN</option>
+                      {HSN_COMMON_OPTIONS.map(opt => (
+                        <option key={opt.code} value={opt.code}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>
