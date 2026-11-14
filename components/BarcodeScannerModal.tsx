@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { BrowserMultiFormatReader } from '@zxing/browser';
+import { BarcodeFormat, DecodeHintType } from '@zxing/library';
 
 interface BarcodeScannerModalProps {
   isOpen: boolean;
@@ -14,62 +16,122 @@ export default function BarcodeScannerModal({
   onDetected
 }: BarcodeScannerModalProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const readerRef = useRef<BrowserMultiFormatReader | null>(null);
+  const controlsRef = useRef<any>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [manualCode, setManualCode] = useState('');
   const [hasCamera, setHasCamera] = useState(true);
-  const [isScanning, setIsScanning] = useState(false);
+  const [scannedCode, setScannedCode] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) {
-      stopCamera();
+      stopScanning();
+      setScannedCode(null);
       return;
     }
 
-    startCamera();
+    startScanning();
 
     return () => {
-      stopCamera();
+      stopScanning();
     };
   }, [isOpen]);
 
-  async function startCamera() {
+  async function startScanning() {
     setErrorMsg('');
+    setScannedCode(null);
+
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         setHasCamera(false);
-        setErrorMsg('Webcam device access not supported in this browser.');
+        setErrorMsg('Webcam device access is not supported in this browser environment.');
         return;
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
-      });
+      // Configure Barcode Formats (Code 128, EAN-13, EAN-8, Code 39, UPC, QR)
+      const hints = new Map();
+      const formats = [
+        BarcodeFormat.CODE_128,
+        BarcodeFormat.EAN_13,
+        BarcodeFormat.EAN_8,
+        BarcodeFormat.CODE_39,
+        BarcodeFormat.UPC_A,
+        BarcodeFormat.UPC_E,
+        BarcodeFormat.QR_CODE
+      ];
+      hints.set(DecodeHintType.POSSIBLE_FORMATS, formats);
+      hints.set(DecodeHintType.TRY_HARDER, true);
 
-      streamRef.current = stream;
+      const codeReader = new BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: 250 });
+      readerRef.current = codeReader;
+
       if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
-        setIsScanning(true);
+        // Start continuous scanning directly from video stream
+        const controls = await codeReader.decodeFromConstraints(
+          {
+            video: {
+              facingMode: { ideal: 'environment' },
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            }
+          },
+          videoRef.current,
+          (result, error) => {
+            if (result) {
+              const text = result.getText();
+              if (text) {
+                // Audio beep on detection
+                playBeep();
+                setScannedCode(text);
+                stopScanning();
+                setTimeout(() => {
+                  onDetected(text);
+                  onClose();
+                }, 400);
+              }
+            }
+          }
+        );
+        controlsRef.current = controls;
+        setHasCamera(true);
       }
     } catch (err: any) {
-      console.warn('Camera stream error:', err);
+      console.warn('ZXing camera scan error:', err);
       setHasCamera(false);
-      setErrorMsg('Camera access was denied or not available. You can use manual entry or simulation below.');
+      setErrorMsg('Unable to access device camera. Please allow camera permissions or enter the barcode below.');
     }
   }
 
-  function stopCamera() {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
+  function stopScanning() {
+    if (controlsRef.current) {
+      try {
+        controlsRef.current.stop();
+      } catch (e) {}
+      controlsRef.current = null;
     }
-    setIsScanning(false);
+    readerRef.current = null;
+  }
+
+  function playBeep() {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime); // High pitch A5 beep
+      gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.15);
+    } catch (e) {}
   }
 
   function handleManualSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!manualCode.trim()) return;
+    playBeep();
     onDetected(manualCode.trim());
     onClose();
   }
@@ -77,7 +139,7 @@ export default function BarcodeScannerModal({
   if (!isOpen) return null;
 
   return (
-    <div className="modal-bg" onClick={onClose} style={{ zIndex: 110 }}>
+    <div className="modal-bg" onClick={onClose} style={{ zIndex: 120 }}>
       <div
         className="modal"
         style={{ maxWidth: 500, padding: 22 }}
@@ -85,9 +147,9 @@ export default function BarcodeScannerModal({
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, borderBottom: '1px solid var(--line)', paddingBottom: 10 }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: 17 }}>Camera Barcode Scanner</h3>
+            <h3 style={{ margin: 0, fontSize: 17 }}>Live Barcode Scanner</h3>
             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
-              Point your camera at a 1D barcode or item label
+              Align the barcode inside the scan frame
             </div>
           </div>
           <button
@@ -105,7 +167,7 @@ export default function BarcodeScannerModal({
           style={{
             position: 'relative',
             width: '100%',
-            height: 240,
+            height: 250,
             background: '#090d16',
             borderRadius: 10,
             overflow: 'hidden',
@@ -123,27 +185,55 @@ export default function BarcodeScannerModal({
                 playsInline
                 muted
               />
-              {/* Laser Sight Scanning Bar */}
-              <div
-                style={{
-                  position: 'absolute',
-                  width: '80%',
-                  height: 2,
-                  background: 'rgba(239, 68, 68, 0.85)',
-                  boxShadow: '0 0 8px #ef4444',
-                  animation: 'scannerLine 2s infinite ease-in-out'
-                }}
-              />
-              <div
-                style={{
-                  position: 'absolute',
-                  border: '2px dashed rgba(255,255,255,0.4)',
-                  width: '76%',
-                  height: '60%',
-                  borderRadius: 8,
-                  pointerEvents: 'none'
-                }}
-              />
+
+              {/* Success Overlay Flash on detection */}
+              {scannedCode ? (
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: 'rgba(34, 197, 94, 0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexDirection: 'column',
+                    color: '#fff',
+                    fontWeight: 700,
+                    fontSize: 18
+                  }}
+                >
+                  ✓ Scanned!
+                  <span style={{ fontSize: 13, fontWeight: 500, marginTop: 4, fontFamily: 'monospace' }}>
+                    {scannedCode}
+                  </span>
+                </div>
+              ) : (
+                <>
+                  {/* Active Laser Targeting Sight */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      width: '78%',
+                      height: 2,
+                      background: 'rgba(239, 68, 68, 0.9)',
+                      boxShadow: '0 0 10px #ef4444',
+                      animation: 'scannerLine 2.2s infinite ease-in-out'
+                    }}
+                  />
+                  {/* Viewfinder Target Boundary Box */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      border: '2px solid rgba(255, 255, 255, 0.65)',
+                      width: '74%',
+                      height: '58%',
+                      borderRadius: 10,
+                      boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.35)',
+                      pointerEvents: 'none'
+                    }}
+                  />
+                </>
+              )}
             </>
           ) : (
             <div style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: 20 }}>
@@ -152,15 +242,15 @@ export default function BarcodeScannerModal({
           )}
         </div>
 
-        {/* Manual Barcode Input Fallback / Rapid Scanner */}
+        {/* Handheld or Manual Keyboard Fallback */}
         <form onSubmit={handleManualSubmit}>
           <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 6 }}>
-            Direct / Handheld Scanner Input
+            Direct Scanner / Manual Key Entry
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <input
               autoFocus
-              placeholder="Scan or type barcode / SKU..."
+              placeholder="Enter barcode or SKU numeral..."
               value={manualCode}
               onChange={e => setManualCode(e.target.value)}
               style={{ flex: 1, fontFamily: 'monospace' }}
@@ -178,13 +268,12 @@ export default function BarcodeScannerModal({
 
         <style jsx>{`
           @keyframes scannerLine {
-            0% { top: 20%; }
-            50% { top: 75%; }
-            100% { top: 20%; }
+            0% { top: 22%; }
+            50% { top: 76%; }
+            100% { top: 22%; }
           }
         `}</style>
       </div>
     </div>
   );
 }
-
