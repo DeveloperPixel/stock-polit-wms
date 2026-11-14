@@ -6,6 +6,7 @@ import EmptyState from '@/components/EmptyState';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { useToast } from '@/components/Toast';
 import { apiCall, money, qty, useData } from '@/lib/client';
+import { HSN_MASTER_DATABASE, searchHsnDatabase } from '@/lib/hsnMaster';
 
 export default function Products() {
   const [q, setQ] = useState('');
@@ -612,24 +613,34 @@ export default function Products() {
                         borderRadius: 8,
                         boxShadow: '0 10px 25px -5px rgba(11, 31, 75, 0.15), 0 8px 10px -6px rgba(11, 31, 75, 0.1)',
                         zIndex: 60,
-                        maxHeight: 220,
+                        maxHeight: 250,
                         overflowY: 'auto'
                       }}
                     >
-                      {HSN_COMMON_OPTIONS.filter(o =>
-                        !editing.hsn_code ||
-                        o.code.includes(editing.hsn_code) ||
-                        o.label.toLowerCase().includes(editing.hsn_code.toLowerCase())
-                      ).length === 0 ? (
-                        <div style={{ padding: '10px 14px', fontSize: 12, color: 'var(--muted)' }}>
-                          No matching standard HSN codes found. Custom code will be saved.
+                      <div
+                        style={{
+                          padding: '6px 12px',
+                          fontSize: 11,
+                          fontWeight: 700,
+                          color: 'var(--muted)',
+                          background: '#f8fafc',
+                          borderBottom: '1px solid var(--line)',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
+                        }}
+                      >
+                        <span>HSN / SAC Code &amp; Rates</span>
+                        <span>Auto-sets GST</span>
+                      </div>
+                      {searchHsnDatabase(editing.hsn_code || '').length === 0 ? (
+                        <div style={{ padding: '12px 14px', fontSize: 12, color: 'var(--muted)' }}>
+                          No matching standard HSN codes found. You can keep your custom code.
                         </div>
                       ) : (
-                        HSN_COMMON_OPTIONS.filter(o =>
-                          !editing.hsn_code ||
-                          o.code.includes(editing.hsn_code) ||
-                          o.label.toLowerCase().includes(editing.hsn_code.toLowerCase())
-                        ).map(opt => (
+                        searchHsnDatabase(editing.hsn_code || '').map(opt => (
                           <div
                             key={opt.code}
                             onMouseDown={() => {
@@ -663,10 +674,13 @@ export default function Products() {
                                 {opt.code}
                               </span>
                               <span style={{ color: 'var(--text)' }}>
-                                {opt.label.split('—')[1]?.split('(')[0]?.trim()}
+                                {opt.label.split('—')[1]?.trim() || opt.label}
+                              </span>
+                              <span style={{ marginLeft: 6, fontSize: 11, color: 'var(--muted)', background: '#f1f5f9', padding: '1px 5px', borderRadius: 4 }}>
+                                {opt.category}
                               </span>
                             </div>
-                            <span className="badge b-CONFIRMED" style={{ fontSize: 11, padding: '2px 6px' }}>
+                            <span className="badge b-CONFIRMED" style={{ fontSize: 11, padding: '2px 6px', whiteSpace: 'nowrap', marginLeft: 8 }}>
                               {opt.gst}% GST
                             </span>
                           </div>
