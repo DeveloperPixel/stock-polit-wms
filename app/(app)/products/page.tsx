@@ -160,10 +160,10 @@ export default function Products() {
           </select>
 
           <input
-            placeholder="Search SKU or name…"
+            placeholder="Search SKU, name, or barcode…"
             value={q}
             onChange={e => setQ(e.target.value)}
-            style={{ width: 200 }}
+            style={{ width: 230 }}
           />
 
           <button

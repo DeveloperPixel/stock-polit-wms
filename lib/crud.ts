@@ -5,7 +5,7 @@ export function crud(table: string, columns: string[], orderBy = 'id DESC') {
   return {
     list: (search?: string) =>
       search
-        ? query(`SELECT * FROM ${table} WHERE ${columns.filter(c => ['name', 'code', 'sku', 'email'].includes(c))
+        ? query(`SELECT * FROM ${table} WHERE ${columns.filter(c => ['name', 'code', 'sku', 'email', 'barcode', 'hsn_code'].includes(c))
             .map(c => `${c} ILIKE $1`).join(' OR ')} ORDER BY ${orderBy} LIMIT 500`, [`%${search}%`])
         : query(`SELECT * FROM ${table} ORDER BY ${orderBy} LIMIT 500`),
     get: (id: number) => one(`SELECT * FROM ${table} WHERE id=$1`, [id]),

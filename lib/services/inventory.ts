@@ -49,7 +49,8 @@ export async function createAdjustment(d: { warehouse_id: number; reason: string
 export const stockLevels = (warehouseId?: number, search?: string) => query(
   `SELECT * FROM v_stock_summary
     WHERE ($1::int IS NULL OR warehouse_id=$1)
-      AND ($2::text IS NULL OR sku ILIKE '%'||$2||'%' OR name ILIKE '%'||$2||'%')
+      AND ($2::text IS NULL OR sku ILIKE '%'||$2||'%' OR name ILIKE '%'||$2||'%'
+           OR product_id IN (SELECT id FROM products WHERE barcode ILIKE '%'||$2||'%'))
     ORDER BY sku, warehouse_code`, [warehouseId ?? null, search || null]);
 
 export const movements = (productId?: number, limit = 200) => query(
