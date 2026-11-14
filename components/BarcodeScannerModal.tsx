@@ -2,7 +2,14 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { BrowserMultiFormatReader } from '@zxing/browser';
-import { BarcodeFormat, DecodeHintType } from '@zxing/library';
+import {
+  BarcodeFormat,
+  BinaryBitmap,
+  DecodeHintType,
+  HybridBinarizer,
+  MultiFormatReader,
+  RGBLuminanceSource
+} from '@zxing/library';
 
 interface BarcodeScannerModalProps {
   isOpen: boolean;
@@ -16,17 +23,17 @@ export default function BarcodeScannerModal({
   onDetected
 }: BarcodeScannerModalProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const readerRef = useRef<BrowserMultiFormatReader | null>(null);
-  const controlsRef = useRef<any>(null);
   const animFrameRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const isScanningRef = useRef<boolean>(false);
 
   const [errorMsg, setErrorMsg] = useState('');
   const [manualCode, setManualCode] = useState('');
   const [hasCamera, setHasCamera] = useState(true);
   const [scannedCode, setScannedCode] = useState<string | null>(null);
-  const [scanningStatus, setScanningStatus] = useState<string>('Initializing camera…');
+  const [contrastBoost, setContrastBoost] = useState<boolean>(true);
 
   useEffect(() => {
     if (!isOpen) {
@@ -45,39 +52,16 @@ export default function BarcodeScannerModal({
   async function startScanning() {
     setErrorMsg('');
     setScannedCode(null);
-    setScanningStatus('Requesting camera stream…');
+    isScanningRef.current = true;
 
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         setHasCamera(false);
-        setErrorMsg('Camera access is not supported in this browser environment.');
+        setErrorMsg('Camera access is not supported in this browser.');
         return;
       }
 
-      // Try hardware native BarcodeDetector API if supported (Chrome Android / macOS Chrome / Safari preview)
-      const hasNativeBarcodeDetector = 'BarcodeDetector' in window;
-      let nativeDetector: any = null;
-      if (hasNativeBarcodeDetector) {
-        try {
-          const supported = await (window as any).BarcodeDetector.getSupportedFormats();
-          const targetFormats = [
-            'code_128',
-            'ean_13',
-            'ean_8',
-            'code_39',
-            'upc_a',
-            'upc_e',
-            'qr_code'
-          ].filter(f => supported.includes(f));
-          if (targetFormats.length > 0) {
-            nativeDetector = new (window as any).BarcodeDetector({ formats: targetFormats });
-          }
-        } catch (e) {
-          nativeDetector = null;
-        }
-      }
-
-      // Acquire camera stream with high definition & autofocus preferences
+      // High-resolution video stream
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: 'environment' },
@@ -93,34 +77,10 @@ export default function BarcodeScannerModal({
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
         setHasCamera(true);
-        setScanningStatus('Align barcode in the center frame…');
 
-        // If native hardware BarcodeDetector is available, use fast native loop
-        if (nativeDetector) {
-          const scanLoop = async () => {
-            if (!videoRef.current || videoRef.current.readyState < 2) {
-              animFrameRef.current = requestAnimationFrame(scanLoop);
-              return;
-            }
-            try {
-              const barcodes = await nativeDetector.detect(videoRef.current);
-              if (barcodes && barcodes.length > 0) {
-                const rawVal = barcodes[0].rawValue;
-                if (rawVal) {
-                  handleSuccessfulScan(rawVal);
-                  return;
-                }
-              }
-            } catch (err) {}
-            animFrameRef.current = requestAnimationFrame(scanLoop);
-          };
-          animFrameRef.current = requestAnimationFrame(scanLoop);
-          return;
-        }
-
-        // Fallback to ZXing MultiFormat Engine
+        // Prepare ZXing MultiFormatReader
         const hints = new Map();
-        const formats = [
+        hints.set(DecodeHintType.POSSIBLE_FORMATS, [
           BarcodeFormat.CODE_128,
           BarcodeFormat.EAN_13,
           BarcodeFormat.EAN_8,
@@ -128,60 +88,131 @@ export default function BarcodeScannerModal({
           BarcodeFormat.UPC_A,
           BarcodeFormat.UPC_E,
           BarcodeFormat.QR_CODE
-        ];
-        hints.set(DecodeHintType.POSSIBLE_FORMATS, formats);
+        ]);
         hints.set(DecodeHintType.TRY_HARDER, true);
 
-        const codeReader = new BrowserMultiFormatReader(hints, {
-          delayBetweenScanAttempts: 150
-        });
-        readerRef.current = codeReader;
+        const zxingReader = new MultiFormatReader();
+        zxingReader.setHints(hints);
 
-        const controls = codeReader.decodeFromStream(
-          stream,
-          videoRef.current,
-          (result, error) => {
-            if (result) {
-              const text = result.getText();
-              if (text) {
-                handleSuccessfulScan(text);
+        // Check if hardware BarcodeDetector is available
+        const hasNative = 'BarcodeDetector' in window;
+        let nativeDetector: any = null;
+        if (hasNative) {
+          try {
+            const supported = await (window as any).BarcodeDetector.getSupportedFormats();
+            const targets = ['code_128', 'ean_13', 'ean_8', 'code_39', 'upc_a', 'upc_e', 'qr_code'].filter(f => supported.includes(f));
+            if (targets.length > 0) {
+              nativeDetector = new (window as any).BarcodeDetector({ formats: targets });
+            }
+          } catch (e) {}
+        }
+
+        const canvas = canvasRef.current || document.createElement('canvas');
+        canvasRef.current = canvas;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+        // Continuous high-speed image processing scan loop
+        let lastScanTime = 0;
+        const scanFrame = async (timestamp: number) => {
+          if (!isScanningRef.current) return;
+
+          // Limit scanning rate to ~15fps (every 65ms) to balance CPU and responsiveness
+          if (timestamp - lastScanTime >= 65 && videoRef.current && videoRef.current.readyState >= 2 && ctx) {
+            lastScanTime = timestamp;
+
+            const vWidth = videoRef.current.videoWidth || 1280;
+            const vHeight = videoRef.current.videoHeight || 720;
+
+            // Target Region of Interest (ROI) centered in frame (75% width, 55% height)
+            const roiW = Math.floor(vWidth * 0.75);
+            const roiH = Math.floor(vHeight * 0.55);
+            const roiX = Math.floor((vWidth - roiW) / 2);
+            const roiY = Math.floor((vHeight - roiH) / 2);
+
+            canvas.width = roiW;
+            canvas.height = roiH;
+
+            // Draw center ROI crop
+            ctx.drawImage(videoRef.current, roiX, roiY, roiW, roiH, 0, 0, roiW, roiH);
+
+            // 1. Try Hardware BarcodeDetector on cropped canvas
+            if (nativeDetector) {
+              try {
+                const results = await nativeDetector.detect(canvas);
+                if (results && results.length > 0 && results[0].rawValue) {
+                  handleSuccessfulScan(results[0].rawValue);
+                  return;
+                }
+              } catch (e) {}
+            }
+
+            // 2. High-contrast enhancement to beat laptop webcam blur
+            const imgData = ctx.getImageData(0, 0, roiW, roiH);
+            const pixels = imgData.data;
+
+            // Contrast stretching + unsharp threshold filter
+            for (let i = 0; i < pixels.length; i += 4) {
+              const lum = pixels[i] * 0.299 + pixels[i + 1] * 0.587 + pixels[i + 2] * 0.114;
+              // Contrast formula
+              let val = lum * 1.5 - 64;
+              if (val > 150) val = 255;
+              else if (val < 95) val = 0;
+              else val = Math.max(0, Math.min(255, val));
+
+              pixels[i] = val;
+              pixels[i + 1] = val;
+              pixels[i + 2] = val;
+            }
+
+            // Convert to ZXing Luminance and decode
+            try {
+              const lumSource = new RGBLuminanceSource(pixels, roiW, roiH);
+              const bitmap = new BinaryBitmap(new HybridBinarizer(lumSource));
+              const decoded = zxingReader.decodeWithState(bitmap);
+              if (decoded && decoded.getText()) {
+                handleSuccessfulScan(decoded.getText());
+                return;
               }
+            } catch (zxErr) {
+              // Frame without barcode - continue loop
+            } finally {
+              zxingReader.reset();
             }
           }
-        );
-        controlsRef.current = controls;
+
+          animFrameRef.current = requestAnimationFrame(scanFrame);
+        };
+
+        animFrameRef.current = requestAnimationFrame(scanFrame);
       }
     } catch (err: any) {
       console.warn('Camera scanner initialization error:', err);
       setHasCamera(false);
       setErrorMsg(
         err.name === 'NotAllowedError'
-          ? 'Camera permission denied. Please allow camera access in browser settings or use manual lookup below.'
-          : 'Unable to access device camera. You can scan using an image or enter the code manually below.'
+          ? 'Camera permission denied. Allow camera in browser settings or enter code below.'
+          : 'Unable to start camera. Please enter code manually or upload a picture.'
       );
     }
   }
 
   function handleSuccessfulScan(code: string) {
+    if (!isScanningRef.current) return;
+    isScanningRef.current = false;
     playBeep();
     setScannedCode(code);
     stopScanning();
     setTimeout(() => {
       onDetected(code);
       onClose();
-    }, 450);
+    }, 400);
   }
 
   function stopScanning() {
+    isScanningRef.current = false;
     if (animFrameRef.current) {
       cancelAnimationFrame(animFrameRef.current);
       animFrameRef.current = null;
-    }
-    if (controlsRef.current) {
-      try {
-        controlsRef.current.stop();
-      } catch (e) {}
-      controlsRef.current = null;
     }
     if (streamRef.current) {
       try {
@@ -192,7 +223,6 @@ export default function BarcodeScannerModal({
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
-    readerRef.current = null;
   }
 
   function playBeep() {
@@ -211,13 +241,12 @@ export default function BarcodeScannerModal({
     } catch (e) {}
   }
 
-  // Allow uploading a photo or screenshot of a barcode
+  // File upload fallback (sharp phone photo or screenshot)
   async function handleImageFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
 
     try {
-      setScanningStatus('Decoding image file…');
       const hints = new Map();
       hints.set(DecodeHintType.POSSIBLE_FORMATS, [
         BarcodeFormat.CODE_128,
@@ -239,7 +268,7 @@ export default function BarcodeScannerModal({
         handleSuccessfulScan(result.getText());
       }
     } catch (err) {
-      setErrorMsg('Could not detect a clear barcode in the uploaded image. Try a sharper photo or enter manually.');
+      setErrorMsg('Could not detect barcode in uploaded image. Please enter code manually.');
     }
   }
 
@@ -266,7 +295,7 @@ export default function BarcodeScannerModal({
               <span>📷</span> Barcode &amp; SKU Scanner
             </h3>
             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
-              {scanningStatus}
+              High-contrast scanner for laptop webcams &amp; mobile cameras
             </div>
           </div>
           <button
@@ -309,7 +338,7 @@ export default function BarcodeScannerModal({
                   style={{
                     position: 'absolute',
                     inset: 0,
-                    background: 'rgba(34, 197, 94, 0.6)',
+                    background: 'rgba(34, 197, 94, 0.75)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -319,7 +348,7 @@ export default function BarcodeScannerModal({
                     fontSize: 20
                   }}
                 >
-                  <div style={{ fontSize: 28, marginBottom: 4 }}>✓</div>
+                  <div style={{ fontSize: 32, marginBottom: 4 }}>✓</div>
                   Scanned!
                   <span style={{ fontSize: 14, fontWeight: 600, marginTop: 4, fontFamily: 'monospace', background: 'rgba(0,0,0,0.3)', padding: '2px 8px', borderRadius: 4 }}>
                     {scannedCode}
@@ -327,7 +356,7 @@ export default function BarcodeScannerModal({
                 </div>
               ) : (
                 <>
-                  {/* Active Laser Targeting Sight */}
+                  {/* Laser Sight */}
                   <div
                     style={{
                       position: 'absolute',
@@ -342,11 +371,11 @@ export default function BarcodeScannerModal({
                   <div
                     style={{
                       position: 'absolute',
-                      border: '2px solid rgba(255, 255, 255, 0.75)',
-                      width: '82%',
-                      height: '62%',
+                      border: '2px solid rgba(255, 255, 255, 0.8)',
+                      width: '80%',
+                      height: '60%',
                       borderRadius: 10,
-                      boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.35)',
+                      boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.38)',
                       pointerEvents: 'none'
                     }}
                   />
@@ -354,15 +383,16 @@ export default function BarcodeScannerModal({
                     style={{
                       position: 'absolute',
                       bottom: 8,
-                      background: 'rgba(0,0,0,0.6)',
+                      background: 'rgba(0,0,0,0.65)',
                       color: '#f8fafc',
-                      padding: '3px 10px',
+                      padding: '3px 12px',
                       borderRadius: 12,
                       fontSize: 11,
-                      pointerEvents: 'none'
+                      pointerEvents: 'none',
+                      textAlign: 'center'
                     }}
                   >
-                    Hold barcode horizontal &amp; steady
+                    Tip: Hold barcode 15–20cm away (avoid holding too close to prevent blur)
                   </div>
                 </>
               )}
@@ -375,6 +405,11 @@ export default function BarcodeScannerModal({
           )}
         </div>
 
+        {/* Scan Tips Alert */}
+        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', fontSize: 11.5, color: '#475569', marginBottom: 12 }}>
+          💡 <b>Laptop Camera Tips:</b> Laptop webcams have fixed focus (they blur when held too close). Hold the barcode <b>6 to 8 inches (15–20cm) away</b> so the lines stay sharp and let good lighting hit the code.
+        </div>
+
         {/* Alternative options: Upload Photo / Manual Key */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
           <button
@@ -383,7 +418,7 @@ export default function BarcodeScannerModal({
             style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}
             onClick={() => fileInputRef.current?.click()}
           >
-            <span>📁</span> Scan from image file
+            <span>📁</span> Scan from photo / image
           </button>
           <input
             ref={fileInputRef}
@@ -394,7 +429,7 @@ export default function BarcodeScannerModal({
           />
 
           <span style={{ fontSize: 11, color: 'var(--muted)' }}>
-            or enter code below
+            or type code below
           </span>
         </div>
 
@@ -403,7 +438,7 @@ export default function BarcodeScannerModal({
           <div style={{ display: 'flex', gap: 8 }}>
             <input
               autoFocus
-              placeholder="Type or scan with USB handheld gun..."
+              placeholder="Type SKU or barcode (or scan with USB handheld gun)..."
               value={manualCode}
               onChange={e => setManualCode(e.target.value)}
               style={{ flex: 1, fontFamily: 'monospace' }}
