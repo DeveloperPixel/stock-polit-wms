@@ -21,6 +21,7 @@ export default function Products() {
   const [duplicateProduct, setDuplicateProduct] = useState<any | null>(null);
   const [viewBarcodeProduct, setViewBarcodeProduct] = useState<any | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [hsnDropdownOpen, setHsnDropdownOpen] = useState(false);
   const { success, error: toastErr } = useToast();
 
   const categories = lk?.categories ?? [];
@@ -581,7 +582,7 @@ export default function Products() {
                   </select>
                 </div>
 
-                <div>
+                <div style={{ position: 'relative' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <label style={{ margin: 0 }}>HSN / SAC Code</label>
                     <span style={{ fontSize: 11, color: 'var(--muted)' }}>
@@ -595,29 +596,91 @@ export default function Products() {
                       onChange={e => setEditing({ ...editing, hsn_code: e.target.value })}
                       placeholder="e.g. 85423100"
                     />
-                    <select
-                      style={{ width: 'auto', maxWidth: 175, fontSize: 12, padding: '7px 8px', background: '#f8fafc', color: 'var(--text)' }}
-                      value=""
-                      onChange={e => {
-                        const val = e.target.value;
-                        if (!val) return;
-                        const match = HSN_COMMON_OPTIONS.find(o => o.code === val);
-                        setEditing({
-                          ...editing,
-                          hsn_code: val,
-                          tax_rate: match ? match.gst : editing.tax_rate
-                        });
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => setHsnDropdownOpen(!hsnDropdownOpen)}
+                      style={{
+                        padding: '0 12px',
+                        fontSize: 12,
+                        background: '#ffffff',
+                        color: 'var(--indigo)',
+                        borderColor: '#cbd5e1',
+                        fontWeight: 600,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4
                       }}
-                      title="Quick pick common HSN codes"
+                      title="Browse common HSN codes"
                     >
-                      <option value="">▼ Select HSN</option>
-                      {HSN_COMMON_OPTIONS.map(opt => (
-                        <option key={opt.code} value={opt.code}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
+                      Suggestions {hsnDropdownOpen ? '▲' : '▼'}
+                    </button>
                   </div>
+
+                  {/* Brand Styled White & Blue Suggestions Dropdown */}
+                  {hsnDropdownOpen && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '100%',
+                        right: 0,
+                        left: 0,
+                        marginTop: 4,
+                        background: '#ffffff',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: 8,
+                        boxShadow: '0 10px 25px -5px rgba(11, 31, 75, 0.15), 0 8px 10px -6px rgba(11, 31, 75, 0.1)',
+                        zIndex: 50,
+                        maxHeight: 220,
+                        overflowY: 'auto'
+                      }}
+                    >
+                      <div style={{ padding: '6px 12px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', background: '#f8fafc', borderBottom: '1px solid var(--line)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Click to select HSN & GST rate
+                      </div>
+                      {HSN_COMMON_OPTIONS.map(opt => (
+                        <div
+                          key={opt.code}
+                          onClick={() => {
+                            setEditing({
+                              ...editing,
+                              hsn_code: opt.code,
+                              tax_rate: opt.gst
+                            });
+                            setHsnDropdownOpen(false);
+                          }}
+                          style={{
+                            padding: '8px 12px',
+                            cursor: 'pointer',
+                            fontSize: 12.5,
+                            borderBottom: '1px solid #f1f5f9',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            transition: 'background 0.15s ease'
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.background = '#eef2ff';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.background = '#ffffff';
+                          }}
+                        >
+                          <div>
+                            <span style={{ fontWeight: 700, color: 'var(--indigo)', fontFamily: 'monospace', marginRight: 8 }}>
+                              {opt.code}
+                            </span>
+                            <span style={{ color: 'var(--text)' }}>
+                              {opt.label.split('—')[1]?.split('(')[0]?.trim()}
+                            </span>
+                          </div>
+                          <span className="badge b-CONFIRMED" style={{ fontSize: 11, padding: '2px 6px' }}>
+                            {opt.gst}% GST
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
