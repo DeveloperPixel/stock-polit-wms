@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
+import Quagga from '@ericblade/quagga2';
 
 interface BarcodeScannerModalProps {
   isOpen: boolean;
@@ -14,111 +14,119 @@ export default function BarcodeScannerModal({
   onClose,
   onDetected
 }: BarcodeScannerModalProps) {
-  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const isRunningRef = useRef<boolean>(false);
 
   const [errorMsg, setErrorMsg] = useState('');
   const [manualCode, setManualCode] = useState('');
   const [scannedCode, setScannedCode] = useState<string | null>(null);
-  const [isInitializing, setIsInitializing] = useState(true);
-
-  const elementId = 'stockpilot-html5-qrcode-reader';
+  const [statusText, setStatusText] = useState('Initializing camera…');
 
   useEffect(() => {
     if (!isOpen) {
-      stopScanner();
+      stopQuagga();
       setScannedCode(null);
       return;
     }
 
-    startScanner();
+    startQuagga();
 
     return () => {
-      stopScanner();
+      stopQuagga();
     };
   }, [isOpen]);
 
-  async function startScanner() {
+  function startQuagga() {
     setErrorMsg('');
     setScannedCode(null);
-    setIsInitializing(true);
+    setStatusText('Starting camera…');
 
+    if (!containerRef.current) return;
+
+    // Quagga2 is the dedicated 1D barcode edge-locator engine used by Barcodes Talk and top retail scanners
+    Quagga.init(
+      {
+        inputStream: {
+          type: 'LiveStream',
+          target: containerRef.current,
+          constraints: {
+            facingMode: 'environment',
+            width: { ideal: 1280, min: 640 },
+            height: { ideal: 720, min: 480 },
+            aspectRatio: { min: 1, max: 2 }
+          },
+          singleChannel: false
+        },
+        locator: {
+          patchSize: 'medium',
+          halfSample: true
+        },
+        numOfWorkers: Math.min(4, typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 2 : 2),
+        frequency: 15,
+        locate: true,
+        decoder: {
+          readers: [
+            'code_128_reader',
+            'ean_reader',
+            'ean_8_reader',
+            'code_39_reader',
+            'code_39_vin_reader',
+            'upc_reader',
+            'upc_e_reader',
+            'i2of5_reader',
+            '2of5_reader'
+          ],
+          multiple: false
+        }
+      },
+      (err) => {
+        if (err) {
+          console.error('Quagga initialization error:', err);
+          setErrorMsg(
+            err.name === 'NotAllowedError'
+              ? 'Camera permission denied. Allow camera access in browser settings.'
+              : 'Could not access laptop camera. You can scan from an image or type the code below.'
+          );
+          setStatusText('');
+          isRunningRef.current = false;
+          return;
+        }
+
+        try {
+          Quagga.start();
+          isRunningRef.current = true;
+          setStatusText('Align barcode anywhere in the camera view');
+
+          Quagga.onDetected(handleQuaggaDetected);
+        } catch (e) {
+          console.warn('Quagga start failed:', e);
+        }
+      }
+    );
+  }
+
+  function handleQuaggaDetected(result: any) {
+    if (!isRunningRef.current) return;
+    const code = result?.codeResult?.code;
+    if (code) {
+      isRunningRef.current = false;
+      playBeep();
+      setScannedCode(code);
+      stopQuagga();
+      setTimeout(() => {
+        onDetected(code);
+        onClose();
+      }, 450);
+    }
+  }
+
+  function stopQuagga() {
+    isRunningRef.current = false;
     try {
-      // Formats supported for warehouse inventory (1D linear barcodes & QR)
-      const formatsToSupport = [
-        Html5QrcodeSupportedFormats.CODE_128,
-        Html5QrcodeSupportedFormats.EAN_13,
-        Html5QrcodeSupportedFormats.EAN_8,
-        Html5QrcodeSupportedFormats.CODE_39,
-        Html5QrcodeSupportedFormats.UPC_A,
-        Html5QrcodeSupportedFormats.UPC_E,
-        Html5QrcodeSupportedFormats.QR_CODE
-      ];
-
-      const html5QrCode = new Html5Qrcode(elementId, {
-        formatsToSupport,
-        verbose: false
-      });
-      scannerRef.current = html5QrCode;
-
-      const config = {
-        fps: 20, // 20 frames per second scanning
-        qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-          // Optimized widescreen barcode rectangle for 1D barcodes
-          const width = Math.floor(viewfinderWidth * 0.88);
-          const height = Math.floor(viewfinderHeight * 0.55);
-          return { width, height };
-        },
-        aspectRatio: 1.777778, // 16:9 aspect ratio standard for webcams
-        experimentalFeatures: {
-          useBarCodeDetectorIfSupported: true // Native hardware acceleration
-        }
-      };
-
-      await html5QrCode.start(
-        { facingMode: 'environment' },
-        config,
-        (decodedText: string) => {
-          handleSuccess(decodedText);
-        },
-        () => {
-          // Frame by frame parse misses are normal while seeking code
-        }
-      );
-
-      setIsInitializing(false);
-    } catch (err: any) {
-      console.warn('html5-qrcode initialization error:', err);
-      setIsInitializing(false);
-      setErrorMsg(
-        err?.name === 'NotAllowedError'
-          ? 'Camera permission denied. Allow camera in browser settings or type code below.'
-          : 'Could not start camera stream. You can scan from a photo or type code below.'
-      );
-    }
-  }
-
-  function handleSuccess(code: string) {
-    if (scannedCode) return;
-    playBeep();
-    setScannedCode(code);
-    stopScanner();
-    setTimeout(() => {
-      onDetected(code);
-      onClose();
-    }, 450);
-  }
-
-  async function stopScanner() {
-    if (scannerRef.current) {
-      try {
-        if (scannerRef.current.isScanning) {
-          await scannerRef.current.stop();
-        }
-        scannerRef.current.clear();
-      } catch (e) {}
-      scannerRef.current = null;
-    }
+      Quagga.offDetected(handleQuaggaDetected);
+      Quagga.stop();
+    } catch (e) {}
   }
 
   function playBeep() {
@@ -129,27 +137,53 @@ export default function BarcodeScannerModal({
       osc.connect(gain);
       gain.connect(audioCtx.destination);
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(900, audioCtx.currentTime);
-      gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.18);
       osc.start();
       osc.stop(audioCtx.currentTime + 0.18);
     } catch (e) {}
   }
 
-  async function handleFileScan(e: React.ChangeEvent<HTMLInputElement>) {
+  // Scan from photo or file directly with Quagga
+  function handleImageFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    try {
-      const html5QrCode = new Html5Qrcode('file-scan-temp-dummy');
-      const result = await html5QrCode.scanFile(file, true);
-      if (result) {
-        handleSuccess(result);
+    setStatusText('Decoding image file…');
+    const url = URL.createObjectURL(file);
+
+    Quagga.decodeSingle(
+      {
+        src: url,
+        numOfWorkers: 2,
+        inputStream: {
+          size: 1200
+        },
+        locator: {
+          patchSize: 'medium',
+          halfSample: true
+        },
+        decoder: {
+          readers: [
+            'code_128_reader',
+            'ean_reader',
+            'ean_8_reader',
+            'code_39_reader',
+            'upc_reader',
+            'upc_e_reader'
+          ]
+        }
+      },
+      (result) => {
+        URL.revokeObjectURL(url);
+        if (result && result.codeResult && result.codeResult.code) {
+          handleQuaggaDetected(result);
+        } else {
+          setErrorMsg('Could not detect barcode in uploaded image. Please enter code manually.');
+        }
       }
-    } catch (err) {
-      setErrorMsg('Could not detect barcode in that image file. Please enter code manually.');
-    }
+    );
   }
 
   function handleManualSubmit(e: React.FormEvent) {
@@ -166,16 +200,16 @@ export default function BarcodeScannerModal({
     <div className="modal-bg" onClick={onClose} style={{ zIndex: 120 }}>
       <div
         className="modal"
-        style={{ maxWidth: 520, padding: 22 }}
+        style={{ maxWidth: 540, padding: 22 }}
         onClick={e => e.stopPropagation()}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, borderBottom: '1px solid var(--line)', paddingBottom: 10 }}>
           <div>
             <h3 style={{ margin: 0, fontSize: 17, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span>📷</span> Live Barcode &amp; SKU Scanner
+              <span>📷</span> Live Barcode Scanner
             </h3>
             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
-              {isInitializing ? 'Connecting to camera…' : 'Position barcode inside the viewfinder'}
+              {statusText}
             </div>
           </div>
           <button
@@ -188,23 +222,34 @@ export default function BarcodeScannerModal({
           </button>
         </div>
 
-        {/* Viewport container */}
+        {/* Video Viewport Container with Quagga Locator Engine */}
         <div
           style={{
             position: 'relative',
             width: '100%',
-            minHeight: 260,
+            height: 280,
             background: '#090d16',
             borderRadius: 10,
             overflow: 'hidden',
-            marginBottom: 12
+            marginBottom: 12,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
           }}
         >
-          {/* HTML5-QRCode Mount Point */}
-          <div id={elementId} style={{ width: '100%' }} />
+          {/* Target for Quagga stream & canvas */}
+          <div
+            ref={containerRef}
+            className="quagga-viewport"
+            style={{
+              position: 'relative',
+              width: '100%',
+              height: '100%'
+            }}
+          />
 
           {/* Success Overlay on Detection */}
-          {scannedCode && (
+          {scannedCode ? (
             <div
               style={{
                 position: 'absolute',
@@ -226,10 +271,39 @@ export default function BarcodeScannerModal({
                 {scannedCode}
               </span>
             </div>
+          ) : (
+            <>
+              {/* Laser Sight */}
+              <div
+                style={{
+                  position: 'absolute',
+                  width: '85%',
+                  height: 2,
+                  background: '#ef4444',
+                  boxShadow: '0 0 12px #ef4444',
+                  animation: 'quaggaLaser 2.2s infinite ease-in-out',
+                  zIndex: 10,
+                  pointerEvents: 'none'
+                }}
+              />
+              {/* Viewfinder Target Reticle */}
+              <div
+                style={{
+                  position: 'absolute',
+                  border: '2px solid rgba(255, 255, 255, 0.85)',
+                  width: '84%',
+                  height: '65%',
+                  borderRadius: 10,
+                  boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.32)',
+                  pointerEvents: 'none',
+                  zIndex: 8
+                }}
+              />
+            </>
           )}
 
           {errorMsg && (
-            <div style={{ color: '#fca5a5', padding: 20, textAlign: 'center', fontSize: 13 }}>
+            <div style={{ position: 'absolute', color: '#fca5a5', padding: 20, textAlign: 'center', fontSize: 13, zIndex: 25, background: 'rgba(0,0,0,0.85)', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {errorMsg}
             </div>
           )}
@@ -250,9 +324,8 @@ export default function BarcodeScannerModal({
             type="file"
             accept="image/*"
             style={{ display: 'none' }}
-            onChange={handleFileScan}
+            onChange={handleImageFile}
           />
-          <div id="file-scan-temp-dummy" style={{ display: 'none' }} />
 
           <span style={{ fontSize: 11, color: 'var(--muted)' }}>
             or type code below
@@ -264,7 +337,7 @@ export default function BarcodeScannerModal({
           <div style={{ display: 'flex', gap: 8 }}>
             <input
               autoFocus
-              placeholder="Type SKU or barcode (or scan with handheld USB gun)..."
+              placeholder="Type SKU or barcode (or scan with USB scanner gun)..."
               value={manualCode}
               onChange={e => setManualCode(e.target.value)}
               style={{ flex: 1, fontFamily: 'monospace' }}
@@ -279,6 +352,22 @@ export default function BarcodeScannerModal({
             </button>
           </div>
         </form>
+
+        <style jsx global>{`
+          .quagga-viewport video {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover !important;
+          }
+          .quagga-viewport canvas {
+            display: none !important;
+          }
+          @keyframes quaggaLaser {
+            0% { top: 20%; }
+            50% { top: 78%; }
+            100% { top: 20%; }
+          }
+        `}</style>
       </div>
     </div>
   );
