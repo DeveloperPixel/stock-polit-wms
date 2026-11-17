@@ -42,7 +42,7 @@ const nav: NavGroup[] = [
       { href: '/products', label: 'Products', icon: 'box' },
       { href: '/categories', label: 'Categories', icon: 'tag' },
       { href: '/warehouses', label: 'Warehouses', icon: 'home' },
-      { href: '/users', label: 'Users', icon: 'user' }
+      // { href: '/users', label: 'Users', icon: 'user' }
     ]
   }
 ];
